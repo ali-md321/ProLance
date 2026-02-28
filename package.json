@@ -1,0 +1,24 @@
+{
+  "name": "prolance",
+  "version": "1.0.0",
+  "description": "A FreeLancing Website",
+  "main": "server.js",
+  "scripts": {
+    "run": "node server.js",
+    "start": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Md Ali",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.2.3",
+    "nodemon": "^3.1.14",
+    "path": "^0.12.7"
+  }
+}
