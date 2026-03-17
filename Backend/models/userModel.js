@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const jwt = require('jsonwebtoken');
 
 const options = { discriminatorKey: "role", timestamps: true };
 
@@ -21,6 +22,12 @@ const BaseUserSchema = new mongoose.Schema(
       required: true,
       minlength: 6
     },
+    role:{
+      type: String,
+      enum: ["Client", "Freelancer"],
+      required: true,
+      default: "Client"
+    },
     avatar: {
       type: String,
       default: ""
@@ -38,16 +45,24 @@ const BaseUserSchema = new mongoose.Schema(
 );
 
 // Hash password
-BaseUserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+BaseUserSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+
   this.password = await bcrypt.hash(this.password, 10);
-  next();
 });
 
 // Compare password
 BaseUserSchema.methods.comparePassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
+
+
+BaseUserSchema.methods.generateToken = function() {
+    return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRE
+    });
+}
+
 
 const User = mongoose.model("User", BaseUserSchema);
 

@@ -26,6 +26,18 @@ const FreelancerSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  biddedProjects: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project"
+    }
+  ],
+  assignedProjects: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project"
+    }
+  ],
   completedProjects: [
     {
       type: mongoose.Schema.Types.ObjectId,
