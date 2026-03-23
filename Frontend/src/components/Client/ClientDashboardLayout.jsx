@@ -8,6 +8,7 @@ const navLinks = [
   { path: "/dashboard",      icon: Home,        label: "Dashboard"   },
   { path: "/create-project", icon: PlusCircle,  label: "Post Project"},
   { path: "/projects",       icon: Folder,      label: "My Projects" },
+  { path: "/proposals/all",  icon: Folder,      label: "All Proposals" },
   { path: "/completed",      icon: CheckCircle, label: "Completed"   },
   { path: `/profile/me`,               icon: User,        label: "Profile"     },
 ];

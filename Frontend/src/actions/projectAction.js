@@ -1,4 +1,4 @@
-import { CREATE_PROJECT_FAIL, CREATE_PROJECT_REQUEST, CREATE_PROJECT_SUCCESS, GET_MYPROJECTS_FAIL, GET_MYPROJECTS_REQUEST, GET_MYPROJECTS_SUCCESS, PROJECT_DETAILS_REQUEST, PROJECT_DETAILS_SUCCESS, PROJECT_DETAILS_FAIL, PROJECT_DELETE_REQUEST, PROJECT_DELETE_SUCCESS, PROJECT_DELETE_FAIL, PROJECT_EDIT_REQUEST, PROJECT_EDIT_SUCCESS, PROJECT_EDIT_FAIL, GET_PROJECTS_BY_FILTER_REQUEST, GET_PROJECTS_BY_FILTER_SUCCESS, GET_PROJECTS_BY_FILTER_FAIL, GET_MY_PROPOSALS_SUCCESS, GET_MY_PROPOSALS_REQUEST, GET_MY_PROPOSALS_FAIL, } from "../constants/projectConstant";
+import { CREATE_PROJECT_FAIL, CREATE_PROJECT_REQUEST, CREATE_PROJECT_SUCCESS, GET_MYPROJECTS_FAIL, GET_MYPROJECTS_REQUEST, GET_MYPROJECTS_SUCCESS, PROJECT_DETAILS_REQUEST, PROJECT_DETAILS_SUCCESS, PROJECT_DETAILS_FAIL, PROJECT_DELETE_REQUEST, PROJECT_DELETE_SUCCESS, PROJECT_DELETE_FAIL, PROJECT_EDIT_REQUEST, PROJECT_EDIT_SUCCESS, PROJECT_EDIT_FAIL, GET_PROJECTS_BY_FILTER_REQUEST, GET_PROJECTS_BY_FILTER_SUCCESS, GET_PROJECTS_BY_FILTER_FAIL, GET_MY_PROPOSALS_SUCCESS, GET_MY_PROPOSALS_REQUEST, GET_MY_PROPOSALS_FAIL, CREATE_PROPOSAL_REQUEST, CREATE_PROPOSAL_SUCCESS, CREATE_PROPOSAL_FAIL, GET_PROJECT_PROPOSALS_REQUEST, GET_PROJECT_PROPOSALS_SUCCESS, GET_PROJECT_PROPOSALS_FAIL, ACCEPT_PROPOSAL_SUCCESS, REJECT_PROPOSAL_SUCCESS, GET_ALL_CLIENT_PROPOSALS_REQUEST, GET_ALL_CLIENT_PROPOSALS_SUCCESS, GET_ALL_CLIENT_PROPOSALS_FAIL, } from "../constants/projectConstant";
 import { axiosInstance as axios} from "../utils/axiosInstance";
 
 
@@ -120,13 +120,31 @@ export const getProjectsByFilterAction = (filters = {}) => async (dispatch) => {
   }
 };
 
-export const getMyProposalsAction = () => async(dispatch)=>{
+export const submitProposalAction = (data) => async (dispatch) => {
+  try {
+    dispatch({type : CREATE_PROPOSAL_REQUEST });
+    console.log("data: ", data);
+    const res = await axios.post("/api/proposals/create", data, {
+      withCredentials: true,
+    });
 
+    dispatch({
+      type : CREATE_PROPOSAL_SUCCESS,
+      payload: res.data.proposal,
+    });
+  } catch (err) {
+    dispatch({
+      type: CREATE_PROPOSAL_FAIL,
+      payload: err.response?.data?.message,
+    });
+  }
+};
+
+export const getMyProposalsAction = () => async(dispatch) => {
   try{
     dispatch({type:GET_MY_PROPOSALS_REQUEST});
 
     const {data} = await axios.get("/api/freelancer/my-proposals", {withCredentials:true} );
-
     dispatch({
       type:GET_MY_PROPOSALS_SUCCESS,
       payload:data.proposals
@@ -139,3 +157,71 @@ export const getMyProposalsAction = () => async(dispatch)=>{
     });
   }
 };
+
+export const getProposalsOfProjectAction = (id) => async(dispatch) => {
+  try{
+    dispatch({type:GET_PROJECT_PROPOSALS_REQUEST});
+
+    const {data} = await axios.get(`/api/proposals/project/${id}`, {withCredentials:true} );
+    dispatch({
+      type:GET_PROJECT_PROPOSALS_SUCCESS,
+      payload:data.proposals
+    });
+
+  }catch(error){
+    dispatch({
+      type:GET_PROJECT_PROPOSALS_FAIL,
+      payload:error.response?.data?.message || error.message
+    });
+  }
+};
+
+export const acceptProposalAction = (id) => async(dispatch) => {
+  try{
+    const {data} = await axios.patch(`/api/proposals/accept/${id}`, {withCredentials:true} );
+    console.log("accept",data);
+    dispatch({
+      type:ACCEPT_PROPOSAL_SUCCESS,
+      payload:data.proposals
+    });
+  }catch(error){
+    console.log("Proposal Acceptance Error!");
+  }
+};
+export const rejectProposalAction = (id) => async(dispatch) => {
+  try{
+    const {data} = await axios.patch(`/api/proposals/reject/${id}`, {withCredentials:true} );
+    dispatch({
+      type:REJECT_PROPOSAL_SUCCESS,
+      payload:data.proposals
+    });
+  }catch(error){
+    console.log("Proposal rejectance Error!");
+  }
+};
+
+export const getAllClientProposalsAction = () => async (dispatch) => {
+  try {
+    dispatch({ type: GET_ALL_CLIENT_PROPOSALS_REQUEST });
+    const { data } = await axios.get(`/api/proposals/all`,{ withCredentials: true });
+    console.log("AllProposals:",data);
+    dispatch({
+      type: GET_ALL_CLIENT_PROPOSALS_SUCCESS,
+      payload: data.proposals,
+    });
+  } catch (error) {
+    dispatch({
+      type: GET_ALL_CLIENT_PROPOSALS_FAIL,
+      payload: error.response?.data?.message,
+    });
+  }
+};
+
+export const getFreelancerStatsAction = () => async(dispatch) => {
+
+}
+
+
+
+
+

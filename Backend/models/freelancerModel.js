@@ -9,7 +9,7 @@ const FreelancerSchema = new mongoose.Schema({
     }
   ],
   experience: {
-    type: Number, // in years
+    type: Number,
     default: 0
   },
   portfolioLinks: [

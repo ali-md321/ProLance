@@ -1,8 +1,7 @@
 import { createStore, applyMiddleware, combineReducers } from "redux";
 import {thunk} from 'redux-thunk';
 import { getUserDetailsReducer, userAuthReducer } from "./reducers/userReducer";
-import { getMyProjectsReducer, getProjectDetailsReducer, getProjectsByFilterReducer } from "./reducers/projectReducer";
-import { getMyProposalsAction } from "./actions/projectAction";
+import { getAllClientProposalsReducer, getMyProjectsReducer, getMyProposalsReducer, getProjectDetailsReducer, getProjectProposalsReducer, getProjectsByFilterReducer } from "./reducers/projectReducer";
 
 const reducers = combineReducers({
     user : userAuthReducer,
@@ -10,7 +9,9 @@ const reducers = combineReducers({
     myProjects : getMyProjectsReducer,
     projectDetails : getProjectDetailsReducer,
     allProjects : getProjectsByFilterReducer,
-    myProposals : getMyProposalsAction
+    myProposals : getMyProposalsReducer,
+    projectProposals : getProjectProposalsReducer,
+    allClientProposals : getAllClientProposalsReducer
 })
 
 const store = createStore(

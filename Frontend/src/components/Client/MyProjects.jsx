@@ -72,7 +72,7 @@ export default function MyProjects() {
           <p className="text-slate-500 text-sm mt-1">{projects?.length || 0} projects found</p>
         </div>
         <motion.button whileHover={{ scale:1.04 }} whileTap={{ scale:.96 }}
-          onClick={() => navigate("/client/create-project")}
+          onClick={() => navigate("/create-project")}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
           style={{ background:"linear-gradient(135deg,#6366f1,#a855f7)", boxShadow:"0 0 20px rgba(99,102,241,0.3)" }}>
           <Plus size={16}/> New Project

@@ -7,7 +7,7 @@ const catchAsync = require("../middlewares/catchAsync");
 const ErrorHandler = require("../utils/errorhandler");
 
 
-module.exports.createProjectController = catchAsync(async (req, res) => {
+module.exports.createProjectController = catchAsync(async (req, res, next) => {
 
   const {
     title,
@@ -47,7 +47,7 @@ module.exports.createProjectController = catchAsync(async (req, res) => {
   });
 });
 
-module.exports.getMyProjectsController = catchAsync(async (req, res) => {
+module.exports.getMyProjectsController = catchAsync(async (req, res, next) => {
 
     const user = await User.findById(req.userId);
     let projects;
@@ -77,7 +77,7 @@ module.exports.getMyProjectsController = catchAsync(async (req, res) => {
   }
 );
 
-module.exports.getProjectDetailsController = catchAsync(async (req, res) => {
+module.exports.getProjectDetailsController = catchAsync(async (req, res, next) => {
 
   const project = await Project.findById(req.params.id)
     .populate("client", "name avatar")
@@ -94,7 +94,7 @@ module.exports.getProjectDetailsController = catchAsync(async (req, res) => {
 
 });
 
-module.exports.deleteProjectController = catchAsync(async (req, res) => {
+module.exports.deleteProjectController = catchAsync(async (req, res, next) => {
 
   const project = await Project.findById(req.params.id);
 
@@ -115,7 +115,7 @@ module.exports.deleteProjectController = catchAsync(async (req, res) => {
 
 });
 
-module.exports.editProjectController = catchAsync(async (req, res) => {
+module.exports.editProjectController = catchAsync(async (req, res, next) => {
   const project = await Project.findById(req.params.id);
   if (!project) {
     throw new ErrorHandler("Project not found", 404);
@@ -134,7 +134,7 @@ module.exports.editProjectController = catchAsync(async (req, res) => {
 
 });
 
-module.exports.getProjectsByFiltersController = catchAsync(async (req, res) => {
+module.exports.getProjectsByFiltersController = catchAsync(async (req, res, next) => {
 
     const { skill, minBudget, maxBudget, experience, deadline } = req.query;
 
@@ -170,6 +170,40 @@ module.exports.getProjectsByFiltersController = catchAsync(async (req, res) => {
     });
 });
 
+module.exports.createProposalController = catchAsync(async (req, res, next) => {
+  const { coverLetter, bidAmount, deliveryDays, projectId } = req.body;
+
+  const project = await Project.findById(projectId);
+  if (!project) {
+    return next(new ErrorHandler("Project not found", 404));
+  }
+
+  const existing = await Proposal.findOne({
+    project: projectId,
+    freelancer: req.userId,
+  });
+  if (existing) {
+    return next(new ErrorHandler("You already submitted proposal", 400));
+  }
+
+  const proposal = await Proposal.create({
+    project: projectId,
+    freelancer: req.userId,
+    coverLetter,
+    bidAmount,
+    deliveryDays,
+  });
+
+  project.proposals.push(proposal._id);
+  project.totalProposals += 1;
+  await project.save();
+
+  res.status(201).json({
+    success: true,
+    proposal,
+  });
+});
+
 module.exports.getMyProposalsController = catchAsync(async(req,res)=>{
 
   const proposals = await Proposal.find({freelancer:req.userId})
@@ -182,6 +216,84 @@ module.exports.getMyProposalsController = catchAsync(async(req,res)=>{
   });
 
 });
+
+module.exports.getProjectProposalsController = catchAsync(async (req, res, next) => {
+  const project = await Project.findById(req.params.projectId);
+
+  if (!project) {
+    return next(new ErrorHandler("Project not found", 404));
+  }
+  if (project.client.toString() !== req.userId.toString()) {
+    return next(new ErrorHandler("Not authorized", 403));
+  }
+
+  const proposals = await Proposal.find({ project: project._id })
+    .populate("freelancer", "name avatar rating");
+
+  res.status(200).json({
+    success: true,
+    proposals,
+  });
+});
+
+module.exports.acceptProposalController = catchAsync(async (req, res, next) => {
+  const proposal = await Proposal.findById(req.params.id);
+  console.log("req",req.params)
+  if (!proposal) {
+    return next(new ErrorHandler("Proposal not found", 404));
+  }
+
+  const project = await Project.findById(proposal.project);
+  if (project.client.toString() !== req.userId.toString()) {
+    return next(new ErrorHandler("Not authorized", 403));
+  }
+
+  proposal.status = "accepted";
+  await proposal.save();
+  // No need to reject other proposals..
+  // await Proposal.updateMany(
+  //   { project: project._id, _id: { $ne: proposal._id } },
+  //   { status: "rejected" }
+  // );
+
+  project.selectedFreelancer = proposal.freelancer;
+  project.status = "in-progress";
+  project.startedAt = new Date();
+  await project.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Freelancer hired successfully",
+  });
+});
+
+module.exports.rejectProposalController = catchAsync(async (req, res, next) => {
+  const proposal = await Proposal.findById(req.params.id);
+
+  proposal.status = "rejected";
+  await proposal.save();
+
+  res.status(200).json({
+    success: true,
+  });
+});
+
+module.exports.getAllClientProposalsController = catchAsync(async (req,res) => {
+  const projects = await Project.find({ client: req.userId });
+
+  const projectIds = projects.map((p) => p._id);
+  const proposals = await Proposal.find({
+    project: { $in: projectIds },
+  })
+    .populate("freelancer", "name avatar rating")
+    .populate("project", "title budget status");
+
+  res.status(200).json({
+    success: true,
+    proposals,
+  });
+})
+
 
 module.exports.getFreelancerActiveProjects = catchAsync(async(req,res)=>{
 

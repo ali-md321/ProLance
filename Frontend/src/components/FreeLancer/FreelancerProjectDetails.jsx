@@ -3,8 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
-import { getProjectDetailsAction } from "../../actions/projectAction";
-import { submitProposalAction } from "../../actions/freelancerAction";
+import { getProjectDetailsAction, submitProposalAction } from "../../actions/projectAction";
 import SpinLoader from "../layout/SpinLoader";
 import { ArrowLeft, DollarSign, Clock, Users, BarChart2, Tag, Paperclip, Send, AlertCircle, CheckCircle, Calendar } from "lucide-react";
 

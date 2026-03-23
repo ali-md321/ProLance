@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { TrendingUp, Briefcase, CheckCircle, Clock, DollarSign, Star, FileText, Activity } from "lucide-react";
-import { getFreelancerStatsAction } from "../../actions/freelancerAction";
+import { getFreelancerStatsAction } from "../../actions/projectAction";
 import SpinLoader from "../layout/SpinLoader";
 
 const StatCard = ({ icon: Icon, label, value, sub, color = "#818cf8", delay = 0 }) => (

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { getMyProposalsAction } from "../../actions/freelancerAction";
+import { getMyProposalsAction } from "../../actions/projectAction";
 import SpinLoader from "../layout/SpinLoader";
 import { FileText, DollarSign, Clock, ChevronRight } from "lucide-react";
 
@@ -17,7 +17,6 @@ export default function MyProposals() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { proposals, isLoading } = useSelector((s) => s.myProposals);
-
   useEffect(() => { dispatch(getMyProposalsAction()); }, [dispatch]);
 
   if (isLoading) return <SpinLoader />;

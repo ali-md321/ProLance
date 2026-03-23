@@ -24,6 +24,8 @@ import MyProposals from './components/FreeLancer/MyProposals';
 import { ActiveProjects, CompletedProjects } from './components/FreeLancer/ProjectStatus';
 import FreelancerProjectDetails from './components/FreeLancer/FreelancerProjectDetails';
 import FreelancerDashboardLayout from './components/FreeLancer/FreelancerDashboardLayout';
+import ProjectProposals from './components/Client/ProjectProposals';
+import AllProposals from './components/Client/AllProposals';
 
 function App() {
   const [appLoading, setAppLoading] = useState(true); 
@@ -58,6 +60,8 @@ function App() {
                 <Route path='profile/:id' element={<Profile />}/>
                 <Route path="projects" element={<MyProjects />} />
                 <Route path="projects/:id" element={<ProjectInfo />} />
+                <Route path="projects/:id/proposals" element={<ProjectProposals />} />
+                <Route path='proposals/all' element={<AllProposals />} />
                 <Route path="edit-project/:id" element={<EditProject />} />
                 <Route path="completed" element={<p className='text-white'>Completed Projects</p>} />
                 <Route path="client-projects" element={<p className='text-white'>ClientProjects</p>} />
