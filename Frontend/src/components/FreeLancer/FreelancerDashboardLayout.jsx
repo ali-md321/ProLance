@@ -1,7 +1,7 @@
 // freelancer/FreelancerDashboardLayout.jsx
 import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, FileText, Briefcase, CheckCircle, User, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Search, FileText, MessagesSquare, Briefcase, CheckCircle, User, LogOut, Menu, X } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { logoutUserAction } from "../../actions/userAction";
 
@@ -9,6 +9,7 @@ const navLinks = [
   { path: "/freelancer/dashboard",          icon: LayoutDashboard, label: "Dashboard"       },
   { path: "/freelancer/browse-projects",    icon: Search,          label: "Browse Projects" },
   { path: "/freelancer/my-proposals",       icon: FileText,        label: "My Proposals"    },
+  { path: "/chat",                          icon: MessagesSquare,  label: "Chats"       },
   { path: "/freelancer/active-projects",    icon: Briefcase,       label: "Active Projects" },
   { path: "/freelancer/completed-projects", icon: CheckCircle,     label: "Completed"       },
   { path: "/freelancer/profile/me",         icon: User,            label: "Profile"         },

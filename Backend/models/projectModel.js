@@ -1,5 +1,4 @@
 // models/Project.js
-
 const mongoose = require("mongoose");
 
 const milestoneSchema = new mongoose.Schema({
@@ -99,6 +98,11 @@ const projectSchema = new mongoose.Schema(
     selectedFreelancer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
+    },
+
+    contract: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Contract",
     },
 
     milestones: [milestoneSchema],

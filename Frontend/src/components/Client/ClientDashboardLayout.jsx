@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, PlusCircle, Folder, CheckCircle, User, LogOut, Menu, X } from "lucide-react";
+import { Home, PlusCircle, Folder, MessagesSquare, CheckCircle, User, LogOut, Menu, X } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { logoutUserAction } from "../../actions/userAction";
 
 const navLinks = [
-  { path: "/dashboard",      icon: Home,        label: "Dashboard"   },
-  { path: "/create-project", icon: PlusCircle,  label: "Post Project"},
-  { path: "/projects",       icon: Folder,      label: "My Projects" },
-  { path: "/proposals/all",  icon: Folder,      label: "All Proposals" },
-  { path: "/completed",      icon: CheckCircle, label: "Completed"   },
-  { path: `/profile/me`,               icon: User,        label: "Profile"     },
+  { path: "/dashboard",      icon: Home,            label: "Dashboard"   },
+  { path: "/create-project", icon: PlusCircle,      label: "Post Project"},
+  { path: "/projects",       icon: Folder,          label: "My Projects" },
+  { path: "/proposals/all",  icon: Folder,          label: "All Proposals" },
+  { path: "/chat",           icon: MessagesSquare,  label: "Chats" },
+  { path: "/completed",      icon: CheckCircle,     label: "Completed"   },
+  { path: `/profile/me`,     icon: User,            label: "Profile"     },
 ];
 
 export default function ClientDashboardLayout() {

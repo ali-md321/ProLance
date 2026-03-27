@@ -3,6 +3,7 @@ const User = require("../models/userModel");
 const Client = require("../models/clientModel");
 const FreeLancer = require("../models/freelancerModel");
 const Proposal = require("../models/proposalModel");
+const Contract = require("../models/contractModel");
 const catchAsync = require("../middlewares/catchAsync");
 const ErrorHandler = require("../utils/errorhandler");
 
@@ -238,7 +239,7 @@ module.exports.getProjectProposalsController = catchAsync(async (req, res, next)
 
 module.exports.acceptProposalController = catchAsync(async (req, res, next) => {
   const proposal = await Proposal.findById(req.params.id);
-  console.log("req",req.params)
+
   if (!proposal) {
     return next(new ErrorHandler("Proposal not found", 404));
   }
@@ -250,14 +251,23 @@ module.exports.acceptProposalController = catchAsync(async (req, res, next) => {
 
   proposal.status = "accepted";
   await proposal.save();
-  // No need to reject other proposals..
+  // --- No need to reject other proposals..
   // await Proposal.updateMany(
   //   { project: project._id, _id: { $ne: proposal._id } },
   //   { status: "rejected" }
   // );
 
+  const contract = await Contract.create({
+    project: project._id,
+    client: project.client,
+    freelancer: proposal.freelancer,
+    proposal: proposal._id,
+    agreedAmount: proposal.bidAmount,
+  });
+
   project.selectedFreelancer = proposal.freelancer;
   project.status = "in-progress";
+  project.contract = contract._id;
   project.startedAt = new Date();
   await project.save();
 

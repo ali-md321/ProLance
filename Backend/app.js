@@ -7,8 +7,8 @@ const { errorMiddleware } = require("./middlewares/errorMiddleware");
 
 const userRouter = require("./routers/userRouter");
 const projectRouter = require("./routers/projectRouter");
-// const chatRouter = require("./routers/chatRouter");
-// const messageRouter = require("./routers/messageRouter");
+const contractRouter = require("./routers/contractRouter");
+const chatRouter = require("./routers/chatRouter");
 // const ErrorHandler = require("./utils/errorhandler");
 
 
@@ -34,8 +34,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api",userRouter)
 app.use("/api",projectRouter)
-// app.use("/api",chatRouter)
-// app.use("/api",messageRouter)
+app.use("/api",contractRouter)
+app.use("/api",chatRouter)
 
 app.use(errorMiddleware);
 module.exports = app;

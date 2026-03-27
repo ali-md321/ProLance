@@ -26,6 +26,7 @@ import FreelancerProjectDetails from './components/FreeLancer/FreelancerProjectD
 import FreelancerDashboardLayout from './components/FreeLancer/FreelancerDashboardLayout';
 import ProjectProposals from './components/Client/ProjectProposals';
 import AllProposals from './components/Client/AllProposals';
+import ChatPage from './components/Chat/ChatPage';
 
 function App() {
   const [appLoading, setAppLoading] = useState(true); 
@@ -77,6 +78,7 @@ function App() {
                 <Route path="profile/:id" element={<Profile />} />
               </Route>
             }
+            <Route path="/chat" element={<ChatPage />} />
             <Route path='/profile/:id' element={<Profile />}/>
             <Route path='/edit-user' element={<EditUser />}/>
             <Route path='/' element={<HomePage />}/>

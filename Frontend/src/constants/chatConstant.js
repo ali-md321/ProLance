@@ -1,0 +1,23 @@
+// constants/chatConstant.js
+
+export const GET_MY_CHATS_REQUEST = "GET_MY_CHATS_REQUEST";
+export const GET_MY_CHATS_SUCCESS = "GET_MY_CHATS_SUCCESS";
+export const GET_MY_CHATS_FAIL    = "GET_MY_CHATS_FAIL";
+
+export const GET_OR_CREATE_CHAT_REQUEST = "GET_OR_CREATE_CHAT_REQUEST";
+export const GET_OR_CREATE_CHAT_SUCCESS = "GET_OR_CREATE_CHAT_SUCCESS";
+export const GET_OR_CREATE_CHAT_FAIL    = "GET_OR_CREATE_CHAT_FAIL";
+
+export const GET_CHAT_MESSAGES_REQUEST = "GET_CHAT_MESSAGES_REQUEST";
+export const GET_CHAT_MESSAGES_SUCCESS = "GET_CHAT_MESSAGES_SUCCESS";
+export const GET_CHAT_MESSAGES_FAIL    = "GET_CHAT_MESSAGES_FAIL";
+
+export const SEND_MESSAGE_SUCCESS      = "SEND_MESSAGE_SUCCESS";
+export const RECEIVE_MESSAGE           = "RECEIVE_MESSAGE";
+
+export const SET_ACTIVE_CHAT           = "SET_ACTIVE_CHAT";
+export const UPDATE_CHAT_LAST_MESSAGE  = "UPDATE_CHAT_LAST_MESSAGE";
+export const SET_ONLINE_USERS          = "SET_ONLINE_USERS";
+export const SET_TYPING                = "SET_TYPING";
+export const CLEAR_TYPING              = "CLEAR_TYPING";
+export const MARK_CHAT_READ            = "MARK_CHAT_READ";
