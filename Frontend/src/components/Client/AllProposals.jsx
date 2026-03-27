@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAllClientProposalsAction } from "../../actions/projectAction";
+import { getOrCreateChatAction } from "../../actions/chatAction";
 import SpinLoader from "../layout/SpinLoader";
 import {
   Star, Clock, DollarSign, MessageSquare, User, Award,
@@ -49,12 +50,20 @@ export default function AllProposals() {
   const navigate = useNavigate();
   const { proposals, isLoading } = useSelector((s) => s.allClientProposals);
 
-  const [sort,       setSort]       = useState("newest");
-  const [filter,     setFilter]     = useState("all");
-  const [sortOpen,   setSortOpen]   = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [sort,         setSort]         = useState("newest");
+  const [filter,       setFilter]       = useState("all");
+  const [sortOpen,     setSortOpen]     = useState(false);
+  const [filterOpen,   setFilterOpen]   = useState(false);
+  const [chatLoadingId, setChatLoadingId] = useState(null);
 
   useEffect(() => { dispatch(getAllClientProposalsAction()); }, [dispatch]);
+
+  const handleChat = async (freelancerId) => {
+    setChatLoadingId(freelancerId);
+    await dispatch(getOrCreateChatAction(freelancerId));
+    setChatLoadingId(null);
+    navigate("/chat");
+  };
 
   if (isLoading) return <SpinLoader />;
 
@@ -356,6 +365,19 @@ export default function AllProposals() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
+                              <motion.button whileHover={{ scale:1.05 }} whileTap={{ scale:.95 }}
+                                onClick={() => handleChat(proposal.freelancer?._id)}
+                                disabled={chatLoadingId === proposal.freelancer?._id}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                style={{
+                                  background: "rgba(99,102,241,0.12)",
+                                  border: "1px solid rgba(99,102,241,0.25)",
+                                  color: "#a5b4fc",
+                                  opacity: chatLoadingId === proposal.freelancer?._id ? 0.6 : 1,
+                                }}>
+                                <MessageSquare size={11}/>
+                                {chatLoadingId === proposal.freelancer?._id ? "..." : "Chat"}
+                              </motion.button>
                               <motion.button whileHover={{ scale:1.05 }} whileTap={{ scale:.95 }}
                                 onClick={() => navigate(`/profile/${proposal.freelancer?._id}`)}
                                 className="view-btn flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold">

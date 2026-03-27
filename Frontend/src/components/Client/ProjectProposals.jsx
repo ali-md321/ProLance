@@ -1,9 +1,10 @@
 // pages/ProjectProposals.jsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { getProposalsOfProjectAction, acceptProposalAction, rejectProposalAction } from "../../actions/projectAction";
+import { getOrCreateChatAction } from "../../actions/chatAction";
 import SpinLoader from "../layout/SpinLoader";
 import { ArrowLeft, Star, Clock, DollarSign, MessageSquare, User, Award, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 
@@ -29,8 +30,16 @@ export default function ProjectProposals() {
   const navigate = useNavigate();
   const { proposals, isLoading } = useSelector((s) => s.projectProposals);
   const { project } = useSelector((s) => s.projectDetails);
+  const [chatLoadingId, setChatLoadingId] = useState(null);
 
   useEffect(() => { dispatch(getProposalsOfProjectAction(id)); }, [dispatch, id]);
+
+  const handleChat = async (freelancerId) => {
+    setChatLoadingId(freelancerId);
+    await dispatch(getOrCreateChatAction(freelancerId));
+    setChatLoadingId(null);
+    navigate("/chat");
+  };
 
   if (isLoading) return <SpinLoader />;
 
@@ -234,11 +243,26 @@ export default function ProjectProposals() {
                         {proposal.createdAt ? new Date(proposal.createdAt).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}) : "—"}
                       </span>
                     </div>
-                    <motion.button whileHover={{ scale:1.04 }} whileTap={{ scale:.96 }}
-                      onClick={() => navigate(`/profile/${proposal.freelancer?._id}`)}
-                      className="view-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold">
-                      View Profile <ChevronRight size={12}/>
-                    </motion.button>
+                    <div className="flex items-center gap-2">
+                      <motion.button whileHover={{ scale:1.04 }} whileTap={{ scale:.96 }}
+                        onClick={() => handleChat(proposal.freelancer?._id)}
+                        disabled={chatLoadingId === proposal.freelancer?._id}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                        style={{
+                          background: "rgba(99,102,241,0.12)",
+                          border: "1px solid rgba(99,102,241,0.25)",
+                          color: "#a5b4fc",
+                          opacity: chatLoadingId === proposal.freelancer?._id ? 0.6 : 1,
+                        }}>
+                        <MessageSquare size={12}/>
+                        {chatLoadingId === proposal.freelancer?._id ? "..." : "Chat"}
+                      </motion.button>
+                      <motion.button whileHover={{ scale:1.04 }} whileTap={{ scale:.96 }}
+                        onClick={() => navigate(`/profile/${proposal.freelancer?._id}`)}
+                        className="view-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold">
+                        View Profile <ChevronRight size={12}/>
+                      </motion.button>
+                    </div>
                   </div>
                 </div>
 

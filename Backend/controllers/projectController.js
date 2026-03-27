@@ -208,7 +208,7 @@ module.exports.createProposalController = catchAsync(async (req, res, next) => {
 module.exports.getMyProposalsController = catchAsync(async(req,res)=>{
 
   const proposals = await Proposal.find({freelancer:req.userId})
-  .populate("project","title budget deadline")
+  .populate("project","title budget deadline client")
   .sort({createdAt:-1});
 
   res.status(200).json({

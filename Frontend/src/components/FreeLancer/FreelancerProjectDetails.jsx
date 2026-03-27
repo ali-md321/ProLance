@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
-import { getProjectDetailsAction, submitProposalAction } from "../../actions/projectAction";
+import { getProjectDetailsAction, submitProposalAction, getMyProposalsAction } from "../../actions/projectAction";
+import { getOrCreateChatAction } from "../../actions/chatAction";
 import SpinLoader from "../layout/SpinLoader";
-import { ArrowLeft, DollarSign, Clock, Users, BarChart2, Tag, Paperclip, Send, AlertCircle, CheckCircle, Calendar } from "lucide-react";
+import { ArrowLeft, DollarSign, Clock, Users, BarChart2, Tag, Paperclip, Send, AlertCircle, CheckCircle, Calendar, MessageSquare } from "lucide-react";
 
 const expIcon = { entry:"🌱", intermediate:"⚡", expert:"🏆" };
 const statusStyle = {
@@ -38,16 +39,34 @@ export default function FreelancerProjectDetails() {
   const navigate = useNavigate();
   const { project, isLoading } = useSelector((s) => s.projectDetails);
   const { user } = useSelector((s) => s.user);
+  const { proposals: myProposals } = useSelector((s) => s.myProposals);
   const [showProposal, setShowProposal] = useState(false);
   const [focused, setFocused] = useState("");
   const [proposal, setProposal] = useState({ coverLetter:"", bidAmount:"", deliveryDays:"" });
+  const [chatLoading, setChatLoading] = useState(false);
 
-  useEffect(() => { dispatch(getProjectDetailsAction(id)); }, [dispatch, id]);
+  useEffect(() => {
+    dispatch(getProjectDetailsAction(id));
+    dispatch(getMyProposalsAction());
+  }, [dispatch, id]);
 
-  const handleProposalSubmit = (e) => {
+  // check if this freelancer already submitted a proposal for this project
+  const alreadyApplied = myProposals?.some((p) => p.project?._id === id || p.project === id);
+
+  const handleProposalSubmit = async (e) => {
     e.preventDefault();
-    dispatch(submitProposalAction({ ...proposal, projectId: id }));
+    const result = await dispatch(submitProposalAction({ ...proposal, projectId: id }));
     setShowProposal(false);
+    navigate("/freelancer/my-proposals");
+  };
+
+  const handleChat = async () => {
+    const clientId = project?.client?._id || project?.client;
+    if (!clientId) return;
+    setChatLoading(true);
+    await dispatch(getOrCreateChatAction(clientId));
+    setChatLoading(false);
+    navigate("/chat");
   };
 
   if (isLoading || !project) return <SpinLoader />;
@@ -95,14 +114,37 @@ export default function FreelancerProjectDetails() {
             </div>
             <h1 className="text-2xl md:text-3xl font-bold text-slate-100 mb-4 leading-tight"
               style={{ fontFamily:"'Syne',sans-serif" }}>{project.title}</h1>
-            {project.status === "open" && (
+
+            <div className="flex flex-wrap items-center gap-3">
+              {project.status === "open" && (
+                alreadyApplied ? (
+                  <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background:"rgba(34,197,94,0.12)", border:"1px solid rgba(34,197,94,0.3)", color:"#4ade80" }}>
+                    <CheckCircle size={15}/> Proposal Submitted
+                  </div>
+                ) : (
+                  <motion.button whileHover={{ scale:1.03 }} whileTap={{ scale:.97 }}
+                    onClick={() => setShowProposal(!showProposal)}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold"
+                    style={{ background:"linear-gradient(135deg,#6366f1,#a855f7)", boxShadow:"0 0 20px rgba(99,102,241,0.35)" }}>
+                    <Send size={14}/> {showProposal ? "Cancel" : "Submit Proposal"}
+                  </motion.button>
+                )
+              )}
               <motion.button whileHover={{ scale:1.03 }} whileTap={{ scale:.97 }}
-                onClick={() => setShowProposal(!showProposal)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold"
-                style={{ background:"linear-gradient(135deg,#6366f1,#a855f7)", boxShadow:"0 0 20px rgba(99,102,241,0.35)" }}>
-                <Send size={14}/> {showProposal ? "Cancel Proposal" : "Submit Proposal"}
+                onClick={handleChat}
+                disabled={chatLoading}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  background: chatLoading ? "rgba(99,102,241,0.1)" : "rgba(99,102,241,0.15)",
+                  border: "1px solid rgba(99,102,241,0.35)",
+                  color: "#a5b4fc",
+                  opacity: chatLoading ? 0.65 : 1,
+                }}>
+                <MessageSquare size={14}/>
+                {chatLoading ? "Opening..." : "Chat with Client"}
               </motion.button>
-            )}
+            </div>
           </div>
         </motion.div>
 
@@ -263,4 +305,4 @@ export default function FreelancerProjectDetails() {
       </div>
     </div>
   );
-}   
+}

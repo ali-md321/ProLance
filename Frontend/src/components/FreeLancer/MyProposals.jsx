@@ -1,11 +1,12 @@
 // freelancer/MyProposals.jsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { getMyProposalsAction } from "../../actions/projectAction";
+import { getOrCreateChatAction } from "../../actions/chatAction";
 import SpinLoader from "../layout/SpinLoader";
-import { FileText, DollarSign, Clock, ChevronRight } from "lucide-react";
+import { FileText, DollarSign, Clock, ChevronRight, MessageSquare } from "lucide-react";
 
 const propStatusStyle = {
   "pending":  { bg:"rgba(251,191,36,0.12)", border:"rgba(251,191,36,0.3)",  color:"#fbbf24", dot:"#f59e0b", label:"Pending"  },
@@ -17,7 +18,18 @@ export default function MyProposals() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { proposals, isLoading } = useSelector((s) => s.myProposals);
+  const [chatLoadingId, setChatLoadingId] = useState(null);
+
   useEffect(() => { dispatch(getMyProposalsAction()); }, [dispatch]);
+
+  const handleChat = async (e, clientId) => {
+    e.stopPropagation(); // prevent card click navigating to project
+    if (!clientId) return;
+    setChatLoadingId(clientId);
+    await dispatch(getOrCreateChatAction(clientId));
+    setChatLoadingId(null);
+    navigate("/chat");
+  };
 
   if (isLoading) return <SpinLoader />;
 
@@ -40,6 +52,7 @@ export default function MyProposals() {
         <div className="space-y-3">
           {proposals.map((proposal, i) => {
             const ps = propStatusStyle[proposal.status] || propStatusStyle["pending"];
+            const clientId = proposal.project?.client;
             return (
               <motion.div key={proposal._id}
                 initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} transition={{ duration:.4, delay: i*0.06 }}
@@ -68,6 +81,20 @@ export default function MyProposals() {
                     </span>
                   </div>
                 </div>
+                <motion.button
+                  whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                  onClick={(e) => handleChat(e, clientId)}
+                  disabled={chatLoadingId === clientId}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all"
+                  style={{
+                    background: "rgba(99,102,241,0.12)",
+                    border: "1px solid rgba(99,102,241,0.28)",
+                    color: "#a5b4fc",
+                    opacity: chatLoadingId === clientId ? 0.6 : 1,
+                  }}>
+                  <MessageSquare size={13}/>
+                  {chatLoadingId === clientId ? "..." : "Chat Client"}
+                </motion.button>
                 <ChevronRight size={16} className="hidden sm:block shrink-0" style={{ color:"rgba(99,102,241,0.4)" }}/>
               </motion.div>
             );

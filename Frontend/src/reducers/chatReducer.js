@@ -78,12 +78,20 @@ const activeChatInitial = {
 export const activeChatReducer = (state = activeChatInitial, { type, payload }) => {
   switch (type) {
     case SET_ACTIVE_CHAT:
+      // only clear messages if switching to a different chat
+      if (state.chat?._id === payload?._id) {
+        return { ...state, chat: payload };
+      }
       return { ...state, chat: payload, messages: [], isLoading: false };
 
     case GET_OR_CREATE_CHAT_REQUEST:
       return { ...state, isLoading: true };
 
     case GET_OR_CREATE_CHAT_SUCCESS:
+      // only clear messages if this is a different chat than current
+      if (state.chat?._id === payload?._id) {
+        return { ...state, isLoading: false, chat: payload };
+      }
       return { ...state, isLoading: false, chat: payload, messages: [] };
 
     case GET_OR_CREATE_CHAT_FAIL:

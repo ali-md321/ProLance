@@ -1,10 +1,12 @@
 // pages/Profile.jsx
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { motion } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getUserDetailsAction } from "../../actions/userAction";
+import { getOrCreateChatAction } from "../../actions/chatAction";
 import SpinLoader from "../layout/SpinLoader";
+import { MessageSquare } from "lucide-react";
 
 const InfoCard = ({ title, value, icon }) => (
   <motion.div whileHover={{ y:-3 }} transition={{ type:"spring", stiffness:300 }}
@@ -36,13 +38,24 @@ const getPlatformIcon = (platform = "") => {
 const Profile = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { user } = useSelector((s) => s.user);
   const { userDetails, isLoading } = useSelector((s) => s.userDetails);
   const isMe = user?._id === id || "me" === id;
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     dispatch(getUserDetailsAction(id === "me" ? user._id : id));
   }, [dispatch, id]);
+
+  const handleChat = async () => {
+    const targetId = userDetails?._id;
+    if (!targetId) return;
+    setChatLoading(true);
+    const chat = await dispatch(getOrCreateChatAction(targetId));
+    setChatLoading(false);
+    navigate("/chat");
+  };
 
   if (isLoading || !userDetails) return <SpinLoader />;
 
@@ -96,6 +109,23 @@ const Profile = () => {
                 style={{ background:"linear-gradient(135deg,#6366f1,#a855f7)", boxShadow:"0 0 20px rgba(99,102,241,0.3)" }}>
                 Edit Profile
               </Link>
+            )}
+            {!isMe && (
+              <motion.button
+                whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+                onClick={handleChat}
+                disabled={chatLoading}
+                className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  background: chatLoading ? "rgba(99,102,241,0.15)" : "linear-gradient(135deg,#6366f1,#a855f7)",
+                  boxShadow: chatLoading ? "none" : "0 0 20px rgba(99,102,241,0.3)",
+                  color: "#fff",
+                  border: "1px solid rgba(99,102,241,0.3)",
+                  opacity: chatLoading ? 0.7 : 1,
+                }}>
+                <MessageSquare size={15} />
+                {chatLoading ? "Opening..." : "Message"}
+              </motion.button>
             )}
           </div>
 
