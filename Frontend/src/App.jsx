@@ -27,6 +27,7 @@ import FreelancerDashboardLayout from './components/FreeLancer/FreelancerDashboa
 import ProjectProposals from './components/Client/ProjectProposals';
 import AllProposals from './components/Client/AllProposals';
 import ChatPage from './components/Chat/ChatPage';
+import WorkspacePage from './components/Workspace/WorkspacePage';
 
 function App() {
   const [appLoading, setAppLoading] = useState(true); 
@@ -62,6 +63,7 @@ function App() {
                 <Route path="projects" element={<MyProjects />} />
                 <Route path="projects/:id" element={<ProjectInfo />} />
                 <Route path="projects/:id/proposals" element={<ProjectProposals />} />
+                <Route path="projects/:id/workspace" element={<WorkspacePage />} />
                 <Route path='proposals/all' element={<AllProposals />} />
                 <Route path="edit-project/:id" element={<EditProject />} />
                 <Route path="completed" element={<p className='text-white'>Completed Projects</p>} />
@@ -72,6 +74,7 @@ function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="browse-projects" element={<BrowseProjects />} />
                 <Route path='projects/:id' element={<FreelancerProjectDetails />} />
+                <Route path="projects/:id/workspace" element={<WorkspacePage />} />
                 <Route path="my-proposals" element={<MyProposals />} />
                 <Route path="active-projects" element={<ActiveProjects />} />
                 <Route path="completed-projects" element={<CompletedProjects />} />

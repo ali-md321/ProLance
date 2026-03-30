@@ -5,17 +5,16 @@ const cookieParser = require("cookie-parser");
 
 const { errorMiddleware } = require("./middlewares/errorMiddleware");
 
-const userRouter = require("./routers/userRouter");
-const projectRouter = require("./routers/projectRouter");
-const contractRouter = require("./routers/contractRouter");
-const chatRouter = require("./routers/chatRouter");
-// const ErrorHandler = require("./utils/errorhandler");
-
-
+const userRouter      = require("./routers/userRouter");
+const projectRouter   = require("./routers/projectRouter");
+const contractRouter  = require("./routers/contractRouter");
+const chatRouter      = require("./routers/chatRouter");
+const workspaceRouter = require("./routers/workspaceRouter");
 
 const allowedOrigins = [
   "http://localhost:5173",
 ];
+
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -32,10 +31,11 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api",userRouter)
-app.use("/api",projectRouter)
-app.use("/api",contractRouter)
-app.use("/api",chatRouter)
+app.use("/api", userRouter);
+app.use("/api", projectRouter);
+app.use("/api", contractRouter);
+app.use("/api", chatRouter);
+app.use("/api", workspaceRouter);
 
 app.use(errorMiddleware);
 module.exports = app;

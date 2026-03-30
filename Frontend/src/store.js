@@ -16,6 +16,7 @@ import {
   activeChatReducer,
   chatPresenceReducer,
 } from "./reducers/chatReducer";
+import { workspaceReducer } from "./reducers/workspaceReducer";
 
 const reducers = combineReducers({
   // auth
@@ -33,6 +34,8 @@ const reducers = combineReducers({
   myChats:            myChatsReducer,
   activeChat:         activeChatReducer,
   chatPresence:       chatPresenceReducer,
+  // workspace
+  workspace:          workspaceReducer,
 });
 
 const store = createStore(reducers, applyMiddleware(thunk));

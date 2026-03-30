@@ -1,4 +1,3 @@
-// models/Project.js
 const mongoose = require("mongoose");
 
 const milestoneSchema = new mongoose.Schema({
@@ -28,7 +27,19 @@ const milestoneSchema = new mongoose.Schema({
     {
       type: String
     }
-  ]
+  ],
+
+  // freelancer's note when submitting work
+  submissionNote: {
+    type: String,
+    default: ""
+  },
+
+  // client's feedback when rejecting
+  rejectionNote: {
+    type: String,
+    default: ""
+  }
 });
 
 
