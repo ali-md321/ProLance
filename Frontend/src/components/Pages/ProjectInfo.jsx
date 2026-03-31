@@ -7,7 +7,7 @@ import { getProjectDetailsAction, deleteProjectAction } from "../../actions/proj
 import SpinLoader from "../layout/SpinLoader";
 import {
   DollarSign, Clock, Users, BarChart2, Tag, Paperclip,
-  Edit2, Trash2, Calendar, CheckCircle, AlertCircle, Eye, FileText
+  Edit2, Trash2, Calendar, CheckCircle, AlertCircle, Eye, FileText, Layers
 } from "lucide-react";
 
 const statusStyle = {
@@ -158,6 +158,16 @@ export default function ProjectInfo() {
                     )}
                   </span>
                 </motion.button>
+
+                {/* ── GO TO WORKSPACE (when contract signed / in-progress) ── */}
+                {["in-progress","submitted","completed"].includes(project.status) && (
+                  <motion.button whileHover={{ scale:1.03 }} whileTap={{ scale:.97 }}
+                    onClick={() => navigate(`/projects/${project._id}/workspace`)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold"
+                    style={{ background:"linear-gradient(135deg,#6366f1,#a855f7)", boxShadow:"0 0 20px rgba(99,102,241,0.35)" }}>
+                    <Layers size={14}/> Go to Workspace
+                  </motion.button>
+                )}
 
                 <motion.button whileHover={{ scale:1.03 }} whileTap={{ scale:.97 }}
                   onClick={handleDelete}

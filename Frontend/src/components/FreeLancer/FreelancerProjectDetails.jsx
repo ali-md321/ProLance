@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getProjectDetailsAction, submitProposalAction, getMyProposalsAction } from "../../actions/projectAction";
 import { getOrCreateChatAction } from "../../actions/chatAction";
 import SpinLoader from "../layout/SpinLoader";
-import { ArrowLeft, DollarSign, Clock, Users, BarChart2, Tag, Paperclip, Send, AlertCircle, CheckCircle, Calendar, MessageSquare } from "lucide-react";
+import { ArrowLeft, DollarSign, Clock, Users, BarChart2, Tag, Paperclip, Send, AlertCircle, CheckCircle, Calendar, MessageSquare, Layers } from "lucide-react";
 
 const expIcon = { entry:"🌱", intermediate:"⚡", expert:"🏆" };
 const statusStyle = {
@@ -144,6 +144,17 @@ export default function FreelancerProjectDetails() {
                 <MessageSquare size={14}/>
                 {chatLoading ? "Opening..." : "Chat with Client"}
               </motion.button>
+
+              {/* ── GO TO WORKSPACE (when freelancer is assigned and project is active) ── */}
+              {["in-progress","submitted","completed"].includes(project.status) &&
+                (project.selectedFreelancer?._id === user?._id || project.selectedFreelancer === user?._id) && (
+                <motion.button whileHover={{ scale:1.03 }} whileTap={{ scale:.97 }}
+                  onClick={() => navigate(`/freelancer/projects/${project._id}/workspace`)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold"
+                  style={{ background:"linear-gradient(135deg,#6366f1,#a855f7)", boxShadow:"0 0 20px rgba(99,102,241,0.35)" }}>
+                  <Layers size={14}/> Go to Workspace
+                </motion.button>
+              )}
             </div>
           </div>
         </motion.div>

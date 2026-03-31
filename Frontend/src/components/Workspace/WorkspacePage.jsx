@@ -8,150 +8,149 @@ import {
   ArrowLeft, Plus, CheckCircle, Clock, AlertCircle, Send, X,
   ChevronDown, ChevronUp, DollarSign, Calendar, Layers,
   MessageSquare, Edit2, Trash2, ExternalLink, FileText,
-  User, Briefcase, BarChart2, Flag, RotateCcw,
+  User, Briefcase, BarChart2, Flag, RotateCcw, Star,
+  CreditCard, TrendingUp, Zap, Award, Lock,
 } from "lucide-react";
 import {
-  getWorkspaceAction,
-  addMilestoneAction,
-  editMilestoneAction,
-  deleteMilestoneAction,
-  startMilestoneAction,
-  submitMilestoneAction,
-  approveMilestoneAction,
-  rejectMilestoneAction,
-  completeProjectAction,
+  getWorkspaceAction, addMilestoneAction, editMilestoneAction,
+  deleteMilestoneAction, startMilestoneAction, submitMilestoneAction,
+  approveMilestoneAction, rejectMilestoneAction, completeProjectAction,
+  createPaymentIntentAction, confirmPaymentAction,
+  reviewFreelancerAction, reviewClientAction,
 } from "../../actions/workspaceAction";
 import { getOrCreateChatAction } from "../../actions/chatAction";
 import SpinLoader from "../layout/SpinLoader";
 
 /* ─── helpers ─────────────────────────────────────────────────────────────── */
-const fmtDate = (d) =>
-  d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const fmtDate = (d) => d
+  ? new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })
+  : "—";
 
-const progressPct = (milestones = []) => {
-  if (!milestones.length) return 0;
-  const done = milestones.filter((m) => m.status === "approved").length;
-  return Math.round((done / milestones.length) * 100);
+const progressPct = (ms = []) => {
+  if (!ms.length) return 0;
+  return Math.round(ms.filter(m => m.status === "approved").length / ms.length * 100);
+};
+const earnedSoFar = (ms = []) =>
+  ms.filter(m => m.status === "approved").reduce((a, m) => a + (m.amount || 0), 0);
+const totalMs = (ms = []) =>
+  ms.reduce((a, m) => a + (m.amount || 0), 0);
+
+/* ─── status maps ─────────────────────────────────────────────────────────── */
+const MS_CFG = {
+  pending:      { color:"#94a3b8", glow:"rgba(148,163,184,0.15)", border:"rgba(148,163,184,0.2)",  label:"Pending",     emoji:"⏳", icon: Clock       },
+  "in-progress":{ color:"#818cf8", glow:"rgba(99,102,241,0.2)",   border:"rgba(99,102,241,0.35)",  label:"In Progress", emoji:"⚡", icon: BarChart2   },
+  submitted:    { color:"#c084fc", glow:"rgba(168,85,247,0.2)",   border:"rgba(168,85,247,0.4)",   label:"Under Review",emoji:"📤", icon: Send        },
+  approved:     { color:"#4ade80", glow:"rgba(34,197,94,0.2)",    border:"rgba(34,197,94,0.35)",   label:"Approved",    emoji:"✅", icon: CheckCircle },
+  rejected:     { color:"#f87171", glow:"rgba(239,68,68,0.2)",    border:"rgba(239,68,68,0.3)",    label:"Revision",    emoji:"🔄", icon: AlertCircle },
+};
+const PS_CFG = {
+  "in-progress":{ color:"#818cf8", bg:"rgba(99,102,241,0.1)",  border:"rgba(99,102,241,0.3)",  dot:"#6366f1", label:"In Progress" },
+  completed:    { color:"#4ade80", bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.3)",   dot:"#22c55e", label:"Completed"   },
+  cancelled:    { color:"#f87171", bg:"rgba(239,68,68,0.1)",   border:"rgba(239,68,68,0.2)",   dot:"#ef4444", label:"Cancelled"   },
+  disputed:     { color:"#fdba74", bg:"rgba(249,115,22,0.12)", border:"rgba(249,115,22,0.3)",  dot:"#f97316", label:"Disputed"    },
+};
+const PAY_CFG = {
+  unpaid:          { color:"#f87171", label:"Unpaid",       icon:"💳" },
+  "escrow-funded": { color:"#fbbf24", label:"In Escrow",    icon:"🔒" },
+  "partially-paid":{ color:"#818cf8", label:"Partial",      icon:"⚡" },
+  paid:            { color:"#4ade80", label:"Paid ✓",       icon:"✅" },
 };
 
-const totalBudget = (milestones = []) =>
-  milestones.reduce((acc, m) => acc + (m.amount || 0), 0);
+/* ─── tiny atoms ──────────────────────────────────────────────────────────── */
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap');
+  .ws-grad{font-family:'Syne',sans-serif;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .ws-card{background:rgba(13,12,28,0.92);border:1px solid rgba(99,102,241,0.16);border-radius:20px;}
+  .ws-pill{background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;border-radius:6px;padding:2px 9px;font-size:.72rem;font-weight:600;}
+  input::placeholder,textarea::placeholder{color:rgba(100,116,139,0.5);}
+  input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.4) sepia(1) saturate(2) hue-rotate(200deg);opacity:.6;}
+  textarea{resize:none;}
+  .ms-card-hover{transition:border-color .2s,box-shadow .2s;}
+  .ms-card-hover:hover{box-shadow:0 4px 24px rgba(99,102,241,0.12);}
+  .star-btn{background:none;border:none;cursor:pointer;padding:2px;transition:transform .15s;}
+  .star-btn:hover{transform:scale(1.2);}
+  .progress-fill{transition:width .9s cubic-bezier(.4,0,.2,1);}
+  .tab-active{background:linear-gradient(135deg,rgba(99,102,241,0.22),rgba(168,85,247,0.14));border-color:rgba(99,102,241,0.42)!important;color:#a5b4fc!important;}
+`;
 
-const earnedSoFar = (milestones = []) =>
-  milestones
-    .filter((m) => m.status === "approved")
-    .reduce((acc, m) => acc + (m.amount || 0), 0);
-
-/* ─── status configs ──────────────────────────────────────────────────────── */
-const MS = {
-  pending:     { color: "#94a3b8", bg: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.18)", label: "Pending",     icon: Clock       },
-  "in-progress":{ color: "#818cf8", bg: "rgba(99,102,241,0.12)",  border: "rgba(99,102,241,0.3)",   label: "In Progress", icon: BarChart2   },
-  submitted:   { color: "#d8b4fe", bg: "rgba(168,85,247,0.12)",  border: "rgba(168,85,247,0.3)",   label: "Submitted",   icon: Send        },
-  approved:    { color: "#4ade80", bg: "rgba(34,197,94,0.10)",   border: "rgba(34,197,94,0.3)",    label: "Approved",    icon: CheckCircle },
-  rejected:    { color: "#f87171", bg: "rgba(239,68,68,0.10)",   border: "rgba(239,68,68,0.25)",   label: "Rejected",    icon: AlertCircle },
-};
-
-const PS = {
-  "in-progress": { color: "#818cf8", bg: "rgba(99,102,241,0.12)", border: "rgba(99,102,241,0.3)", dot: "#6366f1" },
-  completed:     { color: "#4ade80", bg: "rgba(34,197,94,0.10)",  border: "rgba(34,197,94,0.3)",  dot: "#22c55e" },
-  cancelled:     { color: "#f87171", bg: "rgba(239,68,68,0.10)",  border: "rgba(239,68,68,0.2)",  dot: "#ef4444" },
-  disputed:      { color: "#fdba74", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)", dot: "#f97316" },
-};
-
-/* ─── tiny reusable UI ────────────────────────────────────────────────────── */
-const SectionBox = ({ icon: Icon, title, accent = "#818cf8", children, action }) => (
-  <div className="rounded-2xl p-5" style={{ background: "rgba(13,12,28,0.9)", border: "1px solid rgba(99,102,241,0.18)" }}>
-    <div className="flex items-center gap-2.5 mb-4">
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${accent}18` }}>
-        <Icon size={14} style={{ color: accent }} />
-      </div>
-      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-300">{title}</h3>
-      <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg,rgba(99,102,241,0.25),transparent)" }} />
-      {action}
-    </div>
-    {children}
-  </div>
-);
-
-const InputField = ({ label, type = "text", value, onChange, placeholder, min, required }) => (
-  <div>
-    {label && <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: "rgba(148,163,184,0.55)" }}>{label}</label>}
-    <input
-      type={type} value={value} onChange={onChange} placeholder={placeholder}
-      min={min} required={required}
-      className="w-full px-4 py-2.5 outline-none text-slate-200 text-sm"
-      style={{ background: "rgba(30,27,75,0.55)", border: "1px solid rgba(99,102,241,0.22)", borderRadius: 10 }}
-    />
-  </div>
-);
-
-const TextareaField = ({ label, value, onChange, placeholder, rows = 3 }) => (
-  <div>
-    {label && <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: "rgba(148,163,184,0.55)" }}>{label}</label>}
-    <textarea
-      value={value} onChange={onChange} placeholder={placeholder} rows={rows}
-      className="w-full px-4 py-2.5 outline-none text-slate-200 text-sm"
-      style={{ background: "rgba(30,27,75,0.55)", border: "1px solid rgba(99,102,241,0.22)", borderRadius: 10, resize: "none" }}
-    />
-  </div>
-);
-
-const GradBtn = ({ onClick, disabled, children, color = "indigo", size = "sm" }) => {
-  const bg = color === "green"  ? "linear-gradient(135deg,#22c55e,#16a34a)"
-           : color === "red"    ? "linear-gradient(135deg,#ef4444,#dc2626)"
-           : color === "purple" ? "linear-gradient(135deg,#a855f7,#7c3aed)"
-           :                     "linear-gradient(135deg,#6366f1,#a855f7)";
-  const shadow = color === "green"  ? "rgba(34,197,94,0.35)"
-               : color === "red"    ? "rgba(239,68,68,0.35)"
-               : color === "purple" ? "rgba(168,85,247,0.35)"
-               :                     "rgba(99,102,241,0.35)";
-  const py = size === "xs" ? "4px 10px" : size === "sm" ? "7px 16px" : "10px 22px";
+const GBtn = ({ onClick, disabled, color="indigo", size="sm", children, full }) => {
+  const bg = {
+    indigo:"linear-gradient(135deg,#6366f1,#a855f7)",
+    green: "linear-gradient(135deg,#22c55e,#16a34a)",
+    red:   "linear-gradient(135deg,#ef4444,#dc2626)",
+    purple:"linear-gradient(135deg,#a855f7,#7c3aed)",
+    gold:  "linear-gradient(135deg,#f59e0b,#d97706)",
+  }[color];
+  const sh = {
+    indigo:"rgba(99,102,241,.35)", green:"rgba(34,197,94,.35)",
+    red:"rgba(239,68,68,.35)",     purple:"rgba(168,85,247,.35)",
+    gold:"rgba(245,158,11,.35)",
+  }[color];
+  const py = size==="xs" ? "4px 10px" : size==="md" ? "10px 20px" : "7px 15px";
   return (
-    <motion.button
-      whileHover={!disabled ? { scale: 1.03 } : {}} whileTap={!disabled ? { scale: 0.96 } : {}}
+    <motion.button whileHover={!disabled?{scale:1.03}:{}} whileTap={!disabled?{scale:.96}:{}}
       onClick={onClick} disabled={disabled}
-      style={{ background: disabled ? "rgba(30,27,75,0.4)" : bg, padding: py,
-        boxShadow: disabled ? "none" : `0 0 18px ${shadow}`,
-        borderRadius: 10, color: disabled ? "rgba(148,163,184,0.4)" : "#fff",
-        fontSize: "0.8rem", fontWeight: 600, border: "none", cursor: disabled ? "not-allowed" : "pointer",
-        display: "inline-flex", alignItems: "center", gap: 6 }}>
+      style={{
+        background: disabled ? "rgba(30,27,75,.4)" : bg,
+        padding: py, borderRadius:10, width: full?"100%":undefined,
+        boxShadow: disabled?"none":`0 0 16px ${sh}`,
+        color: disabled?"rgba(148,163,184,.4)":"#fff",
+        fontSize:".82rem", fontWeight:600, border:"none",
+        cursor: disabled?"not-allowed":"pointer",
+        display:"inline-flex", alignItems:"center", gap:6, justifyContent:"center",
+      }}>
       {children}
     </motion.button>
   );
 };
 
-const GhostBtn = ({ onClick, disabled, children }) => (
-  <motion.button
-    whileHover={!disabled ? { scale: 1.02 } : {}} whileTap={!disabled ? { scale: 0.97 } : {}}
+const Ghost = ({ onClick, disabled, children, danger }) => (
+  <motion.button whileHover={!disabled?{scale:1.02}:{}} whileTap={!disabled?{scale:.97}:{}}
     onClick={onClick} disabled={disabled}
-    style={{ background: "rgba(30,27,75,0.45)", border: "1px solid rgba(99,102,241,0.22)",
-      padding: "7px 14px", borderRadius: 10, color: "#a5b4fc", fontSize: "0.8rem",
-      fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
-      display: "inline-flex", alignItems: "center", gap: 6 }}>
+    style={{
+      background: danger ? "rgba(239,68,68,.08)" : "rgba(30,27,75,.5)",
+      border:`1px solid ${danger?"rgba(239,68,68,.25)":"rgba(99,102,241,.22)"}`,
+      padding:"7px 14px", borderRadius:10,
+      color: danger?"#f87171":"#a5b4fc",
+      fontSize:".82rem", fontWeight:600,
+      cursor: disabled?"not-allowed":"pointer",
+      display:"inline-flex", alignItems:"center", gap:6,
+      opacity: disabled?.6:1,
+    }}>
     {children}
   </motion.button>
 );
 
-/* ─── Modal wrapper ───────────────────────────────────────────────────────── */
-const Modal = ({ open, onClose, title, children }) => (
+const Field = ({ label, type="text", value, onChange, placeholder, min, required, rows }) => (
+  <div>
+    {label && <label style={{ display:"block", fontSize:".72rem", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.08em", color:"rgba(148,163,184,.55)", marginBottom:6 }}>{label}</label>}
+    {rows ? (
+      <textarea value={value} onChange={onChange} placeholder={placeholder} rows={rows}
+        style={{ width:"100%", padding:"10px 14px", background:"rgba(20,18,48,.7)", border:"1px solid rgba(99,102,241,.22)", borderRadius:10, color:"#e2e8f0", fontSize:".875rem", outline:"none", boxSizing:"border-box" }}/>
+    ) : (
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+        min={min} required={required}
+        style={{ width:"100%", padding:"10px 14px", background:"rgba(20,18,48,.7)", border:"1px solid rgba(99,102,241,.22)", borderRadius:10, color:"#e2e8f0", fontSize:".875rem", outline:"none", boxSizing:"border-box" }}/>
+    )}
+  </div>
+);
+
+const Modal = ({ open, onClose, title, icon: Icon, children }) => (
   <AnimatePresence>
     {open && (
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)" }}
-        onClick={onClose}>
-        <motion.div
-          initial={{ scale: 0.93, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.93, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="w-full max-w-lg rounded-2xl p-6"
-          style={{ background: "rgba(15,14,31,0.98)", border: "1px solid rgba(99,102,241,0.3)", maxHeight: "90vh", overflowY: "auto" }}
-          onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-bold text-slate-200" style={{ fontFamily: "'Syne',sans-serif" }}>{title}</h3>
-            <button onClick={onClose} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 8, padding: "4px 8px", color: "#a5b4fc", cursor: "pointer" }}>
-              <X size={14} />
-            </button>
+      <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+        onClick={onClose}
+        style={{ position:"fixed", inset:0, zIndex:60, display:"flex", alignItems:"center", justifyContent:"center", padding:16, background:"rgba(0,0,0,.7)", backdropFilter:"blur(8px)" }}>
+        <motion.div initial={{scale:.92,opacity:0}} animate={{scale:1,opacity:1}} exit={{scale:.92,opacity:0}}
+          transition={{duration:.2}}
+          onClick={e=>e.stopPropagation()}
+          style={{ width:"100%", maxWidth:500, background:"rgba(12,11,26,.98)", border:"1px solid rgba(99,102,241,.3)", borderRadius:20, padding:24, maxHeight:"90vh", overflowY:"auto" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              {Icon && <div style={{ width:32, height:32, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(99,102,241,.15)" }}><Icon size={15} style={{color:"#818cf8"}}/></div>}
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:"#e2e8f0", fontSize:"1rem" }}>{title}</h3>
+            </div>
+            <button onClick={onClose} style={{ background:"rgba(99,102,241,.1)", border:"1px solid rgba(99,102,241,.2)", borderRadius:8, padding:"4px 8px", color:"#a5b4fc", cursor:"pointer" }}><X size={14}/></button>
           </div>
           {children}
         </motion.div>
@@ -160,147 +159,124 @@ const Modal = ({ open, onClose, title, children }) => (
   </AnimatePresence>
 );
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
-/*  MILESTONE CARD                                                             */
-/* ═══════════════════════════════════════════════════════════════════════════ */
-function MilestoneCard({ milestone, index, isClient, isFreelancer, projectId, actionLoading, onAction }) {
-  const [expanded, setExpanded] = useState(false);
-  const cfg = MS[milestone.status] || MS.pending;
-  const StatusIcon = cfg.icon;
+/* ─── Star Rating ─────────────────────────────────────────────────────────── */
+const StarRating = ({ value, onChange, size=28 }) => (
+  <div style={{ display:"flex", gap:6 }}>
+    {[1,2,3,4,5].map(n => (
+      <button key={n} className="star-btn" onClick={() => onChange(n)} type="button">
+        <Star size={size} fill={n<=value?"#fbbf24":"none"} stroke={n<=value?"#fbbf24":"rgba(148,163,184,.4)"} />
+      </button>
+    ))}
+  </div>
+);
+
+/* ─── Milestone Card (redesigned) ────────────────────────────────────────── */
+function MilestoneCard({ m, idx, isClient, isFreelancer, actionLoading, onAction }) {
+  const [open, setOpen] = useState(false);
+  const cfg = MS_CFG[m.status] || MS_CFG.pending;
+  const Icon = cfg.icon;
+  const daysLeft = m.dueDate ? Math.ceil((new Date(m.dueDate) - Date.now()) / 86400000) : null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}
-      className="rounded-xl overflow-hidden"
-      style={{ background: "rgba(20,18,48,0.8)", border: `1px solid ${cfg.border}` }}>
+    <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:.3,delay:idx*.05}}
+      className="ms-card-hover"
+      style={{ borderRadius:16, overflow:"hidden", border:`1px solid ${cfg.border}`, background:"rgba(16,14,36,.9)" }}>
 
-      {/* Header row */}
-      <div className="flex items-center gap-3 p-4 cursor-pointer select-none" onClick={() => setExpanded(!expanded)}>
-        {/* Number badge */}
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-          style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-          {index + 1}
+      {/* top accent bar */}
+      <div style={{ height:3, background:`linear-gradient(90deg,${cfg.color}80,${cfg.color}20)` }}/>
+
+      {/* header */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", cursor:"pointer" }} onClick={()=>setOpen(!open)}>
+        {/* index bubble */}
+        <div style={{ width:36, height:36, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:".8rem", fontWeight:800, flexShrink:0, background:`${cfg.color}18`, color:cfg.color, border:`1.5px solid ${cfg.border}`, boxShadow:`0 0 12px ${cfg.glow}` }}>
+          {idx+1}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-slate-100 font-semibold text-sm truncate">{milestone.title}</p>
-          <div className="flex items-center gap-3 mt-0.5">
-            <span className="text-indigo-400 font-bold text-xs">₹{milestone.amount?.toLocaleString()}</span>
-            {milestone.dueDate && (
-              <span className="text-slate-500 text-xs flex items-center gap-1">
-                <Calendar size={10} /> {fmtDate(milestone.dueDate)}
+        <div style={{ flex:1, minWidth:0 }}>
+          <p style={{ color:"#e2e8f0", fontWeight:700, fontSize:".9rem", marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</p>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <span style={{ color:"#818cf8", fontWeight:700, fontSize:".78rem" }}>₹{m.amount?.toLocaleString()}</span>
+            {daysLeft !== null && (
+              <span style={{ fontSize:".72rem", color: daysLeft<0?"#f87171": daysLeft<=3?"#fbbf24":"rgba(148,163,184,.5)", display:"flex", alignItems:"center", gap:3 }}>
+                <Calendar size={10}/> {daysLeft<0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`}
               </span>
             )}
           </div>
         </div>
 
-        {/* Status chip */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0"
-          style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-          <StatusIcon size={11} />
-          {cfg.label}
+        {/* status pill */}
+        <div style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:20, background:`${cfg.color}15`, border:`1px solid ${cfg.border}`, color:cfg.color, fontSize:".7rem", fontWeight:700, flexShrink:0 }}>
+          <Icon size={10}/> {cfg.label}
         </div>
 
-        {expanded ? <ChevronUp size={14} style={{ color: "#64748b", flexShrink: 0 }} />
-                  : <ChevronDown size={14} style={{ color: "#64748b", flexShrink: 0 }} />}
+        <div style={{ color:"rgba(100,116,139,.5)", flexShrink:0 }}>
+          {open ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+        </div>
       </div>
 
-      {/* Expanded body */}
+      {/* expanded */}
       <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
-            className="overflow-hidden">
-            <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: "rgba(99,102,241,0.12)" }}>
+        {open && (
+          <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} transition={{duration:.2}} style={{overflow:"hidden"}}>
+            <div style={{ padding:"0 16px 16px", borderTop:`1px solid rgba(99,102,241,.1)` }}>
+              {m.description && <p style={{ color:"rgba(148,163,184,.8)", fontSize:".84rem", lineHeight:1.7, paddingTop:12 }}>{m.description}</p>}
 
-              {milestone.description && (
-                <p className="text-slate-400 text-sm leading-relaxed pt-3">{milestone.description}</p>
-              )}
-
-              {/* Submission note */}
-              {milestone.submissionNote && (
-                <div className="rounded-xl p-3" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#d8b4fe" }}>Freelancer Note</p>
-                  <p className="text-slate-300 text-sm">{milestone.submissionNote}</p>
+              {/* submission note */}
+              {m.submissionNote && (
+                <div style={{ marginTop:12, padding:"10px 14px", borderRadius:12, background:"rgba(168,85,247,.07)", border:"1px solid rgba(168,85,247,.2)" }}>
+                  <p style={{ fontSize:".7rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", color:"#c084fc", marginBottom:4 }}>💬 Freelancer Note</p>
+                  <p style={{ color:"#e2e8f0", fontSize:".84rem" }}>{m.submissionNote}</p>
                 </div>
               )}
 
-              {/* Submission files */}
-              {milestone.submissionFiles?.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(148,163,184,0.5)" }}>Submitted Files / Links</p>
-                  {milestone.submissionFiles.map((f, i) => (
-                    <a key={i} href={f} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:border-indigo-400"
-                      style={{ background: "rgba(30,27,75,0.5)", border: "1px solid rgba(99,102,241,0.2)", color: "#a5b4fc", textDecoration: "none" }}>
-                      <ExternalLink size={11} /> {f.length > 60 ? f.slice(0, 60) + "…" : f}
-                    </a>
-                  ))}
+              {/* files */}
+              {m.submissionFiles?.length > 0 && (
+                <div style={{ marginTop:12 }}>
+                  <p style={{ fontSize:".7rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", color:"rgba(148,163,184,.5)", marginBottom:8 }}>Deliverables</p>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {m.submissionFiles.map((f,i) => (
+                      <a key={i} href={f} target="_blank" rel="noopener noreferrer"
+                        style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:10, background:"rgba(30,27,75,.5)", border:"1px solid rgba(99,102,241,.2)", color:"#a5b4fc", textDecoration:"none", fontSize:".78rem", fontWeight:500 }}>
+                        <ExternalLink size={11}/> {f.length>55 ? f.slice(0,55)+"…" : f}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Rejection note */}
-              {milestone.rejectionNote && (
-                <div className="rounded-xl p-3" style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "#f87171" }}>Rejection Feedback</p>
-                  <p className="text-slate-300 text-sm">{milestone.rejectionNote}</p>
+              {/* rejection note */}
+              {m.rejectionNote && (
+                <div style={{ marginTop:12, padding:"10px 14px", borderRadius:12, background:"rgba(239,68,68,.06)", border:"1px solid rgba(239,68,68,.2)" }}>
+                  <p style={{ fontSize:".7rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", color:"#f87171", marginBottom:4 }}>⚠️ Revision Requested</p>
+                  <p style={{ color:"#e2e8f0", fontSize:".84rem" }}>{m.rejectionNote}</p>
                 </div>
               )}
 
-              {/* ── Action buttons ─────────────────────────────────────────── */}
-              <div className="flex flex-wrap gap-2 pt-1">
-
-                {/* FREELANCER ACTIONS */}
-                {isFreelancer && milestone.status === "pending" && (
-                  <GradBtn onClick={() => onAction("start", milestone._id)} disabled={actionLoading} color="indigo">
-                    <BarChart2 size={13} /> Start Work
-                  </GradBtn>
+              {/* actions */}
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:14 }}>
+                {isFreelancer && m.status==="pending" && (
+                  <GBtn onClick={()=>onAction("start",m._id)} disabled={actionLoading}><Zap size={12}/> Start Work</GBtn>
+                )}
+                {isFreelancer && ["in-progress","rejected"].includes(m.status) && (
+                  <GBtn onClick={()=>onAction("openSubmit",m._id)} disabled={actionLoading} color="purple"><Send size={12}/> Submit Work</GBtn>
+                )}
+                {isFreelancer && m.status==="pending" && (
+                  <Ghost onClick={()=>onAction("openSubmit",m._id)} disabled={actionLoading}><Send size={12}/> Submit Directly</Ghost>
+                )}
+                {isFreelancer && m.status==="rejected" && (
+                  <GBtn onClick={()=>onAction("start",m._id)} disabled={actionLoading}><RotateCcw size={12}/> Restart</GBtn>
                 )}
 
-                {isFreelancer && milestone.status === "rejected" && (
-                  <GradBtn onClick={() => onAction("start", milestone._id)} disabled={actionLoading} color="indigo">
-                    <RotateCcw size={13} /> Restart Work
-                  </GradBtn>
-                )}
-
-                {isFreelancer && ["in-progress", "rejected"].includes(milestone.status) && (
-                  <GradBtn onClick={() => onAction("openSubmit", milestone._id)} disabled={actionLoading} color="purple">
-                    <Send size={13} /> Submit for Review
-                  </GradBtn>
-                )}
-
-                {isFreelancer && milestone.status === "pending" && (
-                  <GhostBtn onClick={() => onAction("openSubmit", milestone._id)} disabled={actionLoading}>
-                    <Send size={13} /> Submit Directly
-                  </GhostBtn>
-                )}
-
-                {/* CLIENT ACTIONS */}
-                {isClient && milestone.status === "submitted" && (
+                {isClient && m.status==="submitted" && (
                   <>
-                    <GradBtn onClick={() => onAction("approve", milestone._id)} disabled={actionLoading} color="green">
-                      <CheckCircle size={13} /> Approve
-                    </GradBtn>
-                    <GradBtn onClick={() => onAction("openReject", milestone._id)} disabled={actionLoading} color="red">
-                      <X size={13} /> Request Changes
-                    </GradBtn>
+                    <GBtn onClick={()=>onAction("approve",m._id)} disabled={actionLoading} color="green"><CheckCircle size={12}/> Approve</GBtn>
+                    <GBtn onClick={()=>onAction("openReject",m._id)} disabled={actionLoading} color="red"><X size={12}/> Request Changes</GBtn>
                   </>
                 )}
-
-                {isClient && milestone.status === "pending" && (
+                {isClient && m.status==="pending" && (
                   <>
-                    <GhostBtn onClick={() => onAction("openEdit", milestone._id, milestone)}>
-                      <Edit2 size={13} /> Edit
-                    </GhostBtn>
-                    <motion.button
-                      whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
-                      onClick={() => onAction("delete", milestone._id)} disabled={actionLoading}
-                      style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
-                        padding: "7px 14px", borderRadius: 10, color: "#f87171", fontSize: "0.8rem",
-                        fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <Trash2 size={13} /> Delete
-                    </motion.button>
+                    <Ghost onClick={()=>onAction("openEdit",m._id,m)}><Edit2 size={12}/> Edit</Ghost>
+                    <Ghost onClick={()=>onAction("delete",m._id)} danger><Trash2 size={12}/> Delete</Ghost>
                   </>
                 )}
               </div>
@@ -312,71 +288,193 @@ function MilestoneCard({ milestone, index, isClient, isFreelancer, projectId, ac
   );
 }
 
+/* ─── Payment Panel (Stripe) ─────────────────────────────────────────────── */
+function PaymentPanel({ project, onPay }) {
+  const [step, setStep] = useState("idle"); // idle | confirm | processing | done
+  const pay = PAY_CFG[project.paymentStatus] || PAY_CFG.unpaid;
+
+  if (project.paymentStatus === "paid") {
+    return (
+      <div style={{ padding:"16px", borderRadius:14, background:"rgba(34,197,94,.07)", border:"1px solid rgba(34,197,94,.25)", textAlign:"center" }}>
+        <p style={{ fontSize:"1.5rem", marginBottom:4 }}>✅</p>
+        <p style={{ color:"#4ade80", fontWeight:700, fontSize:".9rem" }}>Payment Complete</p>
+        <p style={{ color:"rgba(148,163,184,.6)", fontSize:".78rem", marginTop:2 }}>₹{project.budget?.toLocaleString()} paid to freelancer</p>
+      </div>
+    );
+  }
+
+  if (step === "confirm") {
+    return (
+      <div style={{ padding:"16px", borderRadius:14, background:"rgba(99,102,241,.06)", border:"1px solid rgba(99,102,241,.22)" }}>
+        <p style={{ color:"#e2e8f0", fontWeight:700, marginBottom:8 }}>Confirm Payment</p>
+        <p style={{ color:"rgba(148,163,184,.7)", fontSize:".84rem", marginBottom:4 }}>Amount: <strong style={{color:"#818cf8"}}>₹{project.budget?.toLocaleString()}</strong></p>
+        <p style={{ color:"rgba(148,163,184,.7)", fontSize:".84rem", marginBottom:12 }}>Freelancer: <strong style={{color:"#e2e8f0"}}>{project.selectedFreelancer?.name}</strong></p>
+        <div style={{ padding:"10px 14px", borderRadius:10, background:"rgba(30,27,75,.6)", border:"1px solid rgba(99,102,241,.2)", marginBottom:14 }}>
+          <p style={{ color:"rgba(148,163,184,.6)", fontSize:".75rem", display:"flex", alignItems:"center", gap:5 }}>
+            <Lock size={11}/> Payments processed securely via Stripe
+          </p>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <GBtn onClick={()=>onPay(setStep)} color="gold" size="md" full><CreditCard size={14}/> Pay ₹{project.budget?.toLocaleString()}</GBtn>
+          <Ghost onClick={()=>setStep("idle")}>Cancel</Ghost>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding:"16px", borderRadius:14, background:"rgba(99,102,241,.06)", border:"1px solid rgba(99,102,241,.2)" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+        <p style={{ color:"#e2e8f0", fontWeight:700, fontSize:".9rem" }}>Payment</p>
+        <span style={{ fontSize:".75rem", fontWeight:700, color:pay.color }}>{pay.icon} {pay.label}</span>
+      </div>
+      <p style={{ color:"rgba(148,163,184,.6)", fontSize:".8rem", marginBottom:12 }}>
+        Project completed. Release payment to the freelancer.
+      </p>
+      <GBtn onClick={()=>setStep("confirm")} color="gold" full size="md">
+        <CreditCard size={14}/> Pay Freelancer ₹{project.budget?.toLocaleString()}
+      </GBtn>
+    </div>
+  );
+}
+
+/* ─── Review Panel ────────────────────────────────────────────────────────── */
+function ReviewPanel({ project, isClient, isFreelancer, onSubmitReview }) {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const alreadyReviewedAsClient     = project.isReviewedByClient;
+  const alreadyReviewedAsFreelancer = project.isReviewedByFreelancer;
+
+  if (isClient) {
+    if (alreadyReviewedAsClient) {
+      const r = project.clientReview;
+      return (
+        <div style={{ padding:"14px 16px", borderRadius:14, background:"rgba(34,197,94,.06)", border:"1px solid rgba(34,197,94,.2)" }}>
+          <p style={{ color:"#4ade80", fontWeight:700, fontSize:".85rem", marginBottom:6 }}>✅ Your Review Submitted</p>
+          <div style={{ display:"flex", gap:3, marginBottom:4 }}>
+            {[1,2,3,4,5].map(n=><Star key={n} size={14} fill={n<=r.rating?"#fbbf24":"none"} stroke={n<=r.rating?"#fbbf24":"rgba(148,163,184,.3)"}/>)}
+          </div>
+          {r.comment && <p style={{ color:"rgba(148,163,184,.7)", fontSize:".82rem" }}>{r.comment}</p>}
+        </div>
+      );
+    }
+    return (
+      <div style={{ padding:"14px 16px", borderRadius:14, background:"rgba(99,102,241,.06)", border:"1px solid rgba(99,102,241,.18)" }}>
+        <p style={{ color:"#e2e8f0", fontWeight:700, fontSize:".85rem", marginBottom:10 }}>⭐ Rate the Freelancer</p>
+        <StarRating value={rating} onChange={setRating} />
+        <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="Share your experience…" rows={3}
+          style={{ width:"100%", marginTop:10, padding:"8px 12px", background:"rgba(20,18,48,.7)", border:"1px solid rgba(99,102,241,.2)", borderRadius:10, color:"#e2e8f0", fontSize:".84rem", outline:"none", resize:"none", boxSizing:"border-box" }}/>
+        <div style={{ marginTop:10 }}>
+          <GBtn onClick={()=>onSubmitReview({rating,comment})} disabled={!rating} size="md" full>
+            <Star size={13}/> Submit Review
+          </GBtn>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFreelancer) {
+    if (alreadyReviewedAsFreelancer) {
+      const r = project.freelancerReview;
+      return (
+        <div style={{ padding:"14px 16px", borderRadius:14, background:"rgba(34,197,94,.06)", border:"1px solid rgba(34,197,94,.2)" }}>
+          <p style={{ color:"#4ade80", fontWeight:700, fontSize:".85rem", marginBottom:6 }}>✅ Your Review Submitted</p>
+          <div style={{ display:"flex", gap:3, marginBottom:4 }}>
+            {[1,2,3,4,5].map(n=><Star key={n} size={14} fill={n<=r.rating?"#fbbf24":"none"} stroke={n<=r.rating?"#fbbf24":"rgba(148,163,184,.3)"}/>)}
+          </div>
+          {r.comment && <p style={{ color:"rgba(148,163,184,.7)", fontSize:".82rem" }}>{r.comment}</p>}
+        </div>
+      );
+    }
+    return (
+      <div style={{ padding:"14px 16px", borderRadius:14, background:"rgba(99,102,241,.06)", border:"1px solid rgba(99,102,241,.18)" }}>
+        <p style={{ color:"#e2e8f0", fontWeight:700, fontSize:".85rem", marginBottom:10 }}>⭐ Rate the Client</p>
+        <StarRating value={rating} onChange={setRating} />
+        <textarea value={comment} onChange={e=>setComment(e.target.value)} placeholder="How was working with this client?" rows={3}
+          style={{ width:"100%", marginTop:10, padding:"8px 12px", background:"rgba(20,18,48,.7)", border:"1px solid rgba(99,102,241,.2)", borderRadius:10, color:"#e2e8f0", fontSize:".84rem", outline:"none", resize:"none", boxSizing:"border-box" }}/>
+        <div style={{ marginTop:10 }}>
+          <GBtn onClick={()=>onSubmitReview({rating,comment})} disabled={!rating} size="md" full>
+            <Star size={13}/> Submit Review
+          </GBtn>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*  MAIN PAGE                                                                  */
+/*  MAIN COMPONENT                                                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 export default function WorkspacePage() {
-  const { id } = useParams();
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+  const { id }    = useParams();
+  const dispatch  = useDispatch();
+  const navigate  = useNavigate();
 
-  const { user }                      = useSelector((s) => s.user);
-  const { project, isLoading, actionLoading } = useSelector((s) => s.workspace);
+  const { user }   = useSelector(s => s.user);
+  const { project, isLoading, actionLoading, paymentLoading } = useSelector(s => s.workspace);
 
-  // ── modal states ─────────────────────────────────────────────────────────
+  // modals
   const [addOpen,    setAddOpen]    = useState(false);
   const [editOpen,   setEditOpen]   = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [activeMid,  setActiveMid]  = useState(null);   // milestone id for current action
+  const [activeMid,  setActiveMid]  = useState(null);
 
-  // add/edit form state
-  const emptyForm = { title: "", description: "", amount: "", dueDate: "" };
-  const [form,     setForm]     = useState(emptyForm);
-  const [submitForm, setSubmitForm] = useState({ note: "", files: "" }); // files = newline-separated URLs
+  // forms
+  const emptyForm = { title:"", description:"", amount:"", dueDate:"" };
+  const [form,       setForm]       = useState(emptyForm);
+  const [submitForm, setSubmitForm] = useState({ note:"", files:"" });
   const [rejectNote, setRejectNote] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
 
-  useEffect(() => {
-    dispatch(getWorkspaceAction(id));
-  }, [dispatch, id]);
+  // tabs
+  const [tab, setTab] = useState("milestones"); // milestones | overview | payment | review
 
-  /* ── dispatch helper — must be ABOVE early return ──────────────────────── */
+  useEffect(() => { dispatch(getWorkspaceAction(id)); }, [dispatch, id]);
+
+  // ── handleAction — MUST be before early return ─────────────────────────
   const handleAction = useCallback(async (type, milestoneId, milestoneData) => {
     if (type === "start") {
       const r = await dispatch(startMilestoneAction(id, milestoneId));
-      if (r.success) toast.success("Milestone started!");
+      if (r.success) toast.success("Milestone started! Let's go 🚀");
       else toast.error(r.message || "Failed");
     }
-
     if (type === "approve") {
       const r = await dispatch(approveMilestoneAction(id, milestoneId));
-      if (r.success) toast.success(r.message || "Milestone approved!");
-      else toast.error(r.message || "Failed");
+      if (r.success) {
+        if (r.allApproved) toast.success("All milestones approved! You can now mark the project complete. 🎉", {autoClose:5000});
+        else toast.success("Milestone approved ✅");
+      } else toast.error(r.message || "Failed");
     }
-
     if (type === "delete") {
       if (!window.confirm("Delete this milestone?")) return;
       const r = await dispatch(deleteMilestoneAction(id, milestoneId));
       if (r.success) toast.success("Milestone deleted");
       else toast.error(r.message || "Failed");
     }
-
-    if (type === "openSubmit") { setActiveMid(milestoneId); setSubmitForm({ note: "", files: "" }); setSubmitOpen(true); }
+    if (type === "openSubmit") { setActiveMid(milestoneId); setSubmitForm({note:"",files:""}); setSubmitOpen(true); }
     if (type === "openReject") { setActiveMid(milestoneId); setRejectNote(""); setRejectOpen(true); }
-    if (type === "openEdit")   { setActiveMid(milestoneId); setForm({ title: milestoneData.title, description: milestoneData.description || "", amount: milestoneData.amount, dueDate: milestoneData.dueDate ? milestoneData.dueDate.slice(0, 10) : "" }); setEditOpen(true); }
+    if (type === "openEdit")   {
+      setActiveMid(milestoneId);
+      setForm({ title:milestoneData.title, description:milestoneData.description||"", amount:milestoneData.amount, dueDate:milestoneData.dueDate?milestoneData.dueDate.slice(0,10):"" });
+      setEditOpen(true);
+    }
   }, [dispatch, id]);
 
-  // ── Early return AFTER all hooks ─────────────────────────────────────────
+  // ── Early return after all hooks ──────────────────────────────────────
   if (isLoading || !project) return <SpinLoader />;
 
-  const isClient     = user?._id === (project.client?._id || project.client);
-  const isFreelancer = user?._id === (project.selectedFreelancer?._id || project.selectedFreelancer);
-  const milestones   = project.milestones || [];
-  const pct          = progressPct(milestones);
-  const ps           = PS[project.status] || PS["in-progress"];
-
-  const other = isClient ? project.selectedFreelancer : project.client;
+  const myId        = user?._id;
+  const isClient    = myId === (project.client?._id || project.client);
+  const isFreelancer= myId === (project.selectedFreelancer?._id || project.selectedFreelancer);
+  const milestones  = project.milestones || [];
+  const pct         = progressPct(milestones);
+  const ps          = PS_CFG[project.status] || PS_CFG["in-progress"];
+  const other       = isClient ? project.selectedFreelancer : project.client;
+  const isCompleted = project.status === "completed";
 
   const handleChat = async () => {
     const otherId = other?._id || other;
@@ -387,22 +485,33 @@ export default function WorkspacePage() {
     navigate("/chat");
   };
 
-  /* ── submit milestone ──────────────────────────────────────────────────── */
-  const handleSubmitMilestone = async () => {
-    const filesArr = submitForm.files.split("\n").map(s => s.trim()).filter(Boolean);
-    const r = await dispatch(submitMilestoneAction(id, activeMid, { note: submitForm.note, submissionFiles: filesArr }));
-    if (r.success) { toast.success("Milestone submitted for review!"); setSubmitOpen(false); }
+  const handleComplete = async () => {
+    if (!window.confirm("Mark this project as completed? This cannot be undone.")) return;
+    const r = await dispatch(completeProjectAction(id));
+    if (r.success) { toast.success("Project completed! 🎉"); setTab("payment"); }
     else toast.error(r.message || "Failed");
   };
 
-  /* ── reject milestone ──────────────────────────────────────────────────── */
-  const handleRejectMilestone = async () => {
-    const r = await dispatch(rejectMilestoneAction(id, activeMid, rejectNote));
-    if (r.success) { toast.success("Revision requested"); setRejectOpen(false); }
-    else toast.error(r.message || "Failed");
+  const handlePay = async (setStep) => {
+    setStep("processing");
+    const r = await dispatch(createPaymentIntentAction(id));
+    if (!r.success) { toast.error(r.message || "Payment failed"); setStep("confirm"); return; }
+    // In a real app you'd mount Stripe Elements here.
+    // For now we simulate confirm immediately (replace with real Stripe flow).
+    const SIMULATED_PI_ID = `pi_simulated_${Date.now()}`;
+    const confirm = await dispatch(confirmPaymentAction(id, SIMULATED_PI_ID));
+    if (confirm.success) { toast.success("Payment sent to freelancer! 💰"); setStep("done"); }
+    else { toast.error(confirm.message || "Confirmation failed"); setStep("confirm"); }
   };
 
-  /* ── add milestone ─────────────────────────────────────────────────────── */
+  const handleReview = async (payload) => {
+    let r;
+    if (isClient)     r = await dispatch(reviewFreelancerAction(id, payload));
+    if (isFreelancer) r = await dispatch(reviewClientAction(id, payload));
+    if (r?.success) toast.success("Review submitted! ⭐");
+    else toast.error(r?.message || "Failed");
+  };
+
   const handleAddMilestone = async (e) => {
     e.preventDefault();
     const r = await dispatch(addMilestoneAction(id, form));
@@ -410,312 +519,390 @@ export default function WorkspacePage() {
     else toast.error(r.message || "Failed");
   };
 
-  /* ── edit milestone ────────────────────────────────────────────────────── */
   const handleEditMilestone = async (e) => {
     e.preventDefault();
     const r = await dispatch(editMilestoneAction(id, activeMid, form));
-    if (r.success) { toast.success("Milestone updated!"); setEditOpen(false); setForm(emptyForm); }
+    if (r.success) { toast.success("Milestone updated!"); setEditOpen(false); }
     else toast.error(r.message || "Failed");
   };
 
-  /* ── complete project ──────────────────────────────────────────────────── */
-  const handleComplete = async () => {
-    if (!window.confirm("Mark this project as completed?")) return;
-    const r = await dispatch(completeProjectAction(id));
-    if (r.success) toast.success("Project completed! 🎉");
-    else toast.error("Failed");
+  const handleSubmitMilestone = async () => {
+    const filesArr = submitForm.files.split("\n").map(s=>s.trim()).filter(Boolean);
+    const r = await dispatch(submitMilestoneAction(id, activeMid, { note:submitForm.note, submissionFiles:filesArr }));
+    if (r.success) { toast.success("Submitted for review! 📤"); setSubmitOpen(false); }
+    else toast.error(r.message || "Failed");
   };
 
-  /* ─────────────────────────────────────────────────────────────────────── */
-  /*  RENDER                                                                   */
-  /* ─────────────────────────────────────────────────────────────────────── */
+  const handleRejectMilestone = async () => {
+    const r = await dispatch(rejectMilestoneAction(id, activeMid, rejectNote));
+    if (r.success) { toast.success("Revision requested"); setRejectOpen(false); }
+    else toast.error(r.message || "Failed");
+  };
+
+  // tabs config
+  const tabs = [
+    { key:"milestones", label:"Milestones", icon:Layers },
+    { key:"overview",   label:"Overview",   icon:FileText },
+    ...(isCompleted ? [
+      { key:"payment", label:"Payment", icon:CreditCard },
+      { key:"review",  label:"Review",  icon:Star },
+    ] : []),
+  ];
+
+  /* ─── render ─────────────────────────────────────────────────────────── */
   return (
-    <div style={{ fontFamily: "'DM Sans',sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap');
-        .grad-text{font-family:'Syne',sans-serif;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-        .skill-pill{background:rgba(99,102,241,0.13);border:1px solid rgba(99,102,241,0.22);color:#a5b4fc;border-radius:6px;padding:2px 9px;font-size:0.72rem;font-weight:600;}
-        input::placeholder,textarea::placeholder{color:rgba(100,116,139,0.55);}
-        input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.4) sepia(1) saturate(2) hue-rotate(200deg);opacity:.6;}
-        textarea{resize:none;}
-        .progress-bar-fill{transition:width 0.8s cubic-bezier(.4,0,.2,1);}
-      `}</style>
+    <div style={{ fontFamily:"'DM Sans',sans-serif", minHeight:"100vh" }}>
+      <style>{css}</style>
 
-      <div className="max-w-5xl mx-auto space-y-5">
+      <div style={{ maxWidth:960, margin:"0 auto", padding:"0 4px" }}>
 
-        {/* Back */}
-        <motion.button whileHover={{ scale: 1.04 }} onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#a5b4fc" }}>
-          <ArrowLeft size={15} /> Back
+        {/* ── Back ── */}
+        <motion.button whileHover={{scale:1.04}} onClick={()=>navigate(-1)}
+          style={{ display:"flex", alignItems:"center", gap:6, color:"#a5b4fc", fontWeight:600, fontSize:".84rem", background:"none", border:"none", cursor:"pointer", marginBottom:16 }}>
+          <ArrowLeft size={15}/> Back
         </motion.button>
 
-        {/* ── Hero banner ─────────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-          className="rounded-2xl overflow-hidden relative"
-          style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.14),rgba(168,85,247,0.08)),rgba(13,12,28,0.97)", border: "1px solid rgba(99,102,241,0.25)" }}>
-          <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg,transparent,#6366f1,#a855f7,transparent)" }} />
-
-          <div className="px-6 md:px-8 pt-6 pb-5">
-            {/* Role tag + status */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              <span className="text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest"
-                style={{ background: isClient ? "rgba(251,191,36,0.12)" : "rgba(99,102,241,0.12)", color: isClient ? "#fbbf24" : "#a5b4fc", border: isClient ? "1px solid rgba(251,191,36,0.3)" : "1px solid rgba(99,102,241,0.3)" }}>
-                {isClient ? "👔 Client View" : "💻 Freelancer View"}
+        {/* ── HERO ── */}
+        <motion.div initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{duration:.5}}
+          style={{ borderRadius:22, overflow:"hidden", marginBottom:20,
+            background:"linear-gradient(135deg,rgba(99,102,241,.13),rgba(168,85,247,.07)),rgba(12,11,26,.97)",
+            border:"1px solid rgba(99,102,241,.22)" }}>
+          {/* shimmer top line */}
+          <div style={{ height:2, background:"linear-gradient(90deg,transparent,#6366f1,#a855f7,transparent)" }}/>
+          <div style={{ padding:"22px 24px 18px" }}>
+            {/* badges */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+              <span style={{ fontSize:".72rem", fontWeight:700, padding:"4px 12px", borderRadius:20, textTransform:"uppercase", letterSpacing:".07em",
+                background: isClient ? "rgba(251,191,36,.1)" : "rgba(99,102,241,.12)",
+                color: isClient ? "#fbbf24" : "#a5b4fc",
+                border: isClient ? "1px solid rgba(251,191,36,.28)" : "1px solid rgba(99,102,241,.3)" }}>
+                {isClient ? "👔 Client" : "💻 Freelancer"}
               </span>
-              <span className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full"
-                style={{ background: ps.bg, border: `1px solid ${ps.border}`, color: ps.color }}>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: ps.dot }} />
-                {project.status.replace(/-/g, " ")}
+              <span style={{ display:"flex", alignItems:"center", gap:5, fontSize:".72rem", fontWeight:700, padding:"4px 12px", borderRadius:20,
+                background:ps.bg, border:`1px solid ${ps.border}`, color:ps.color }}>
+                <div style={{ width:6, height:6, borderRadius:"50%", background:ps.dot, boxShadow:`0 0 6px ${ps.dot}` }}/>
+                {ps.label}
               </span>
+              {isCompleted && (
+                <span style={{ fontSize:".72rem", fontWeight:700, padding:"4px 12px", borderRadius:20,
+                  background:(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).color==="#4ade80"?"rgba(34,197,94,.1)":"rgba(249,115,22,.1)",
+                  color:(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).color,
+                  border:`1px solid ${(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).color}40` }}>
+                  {(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).icon} {(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).label}
+                </span>
+              )}
             </div>
 
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-100 mb-1" style={{ fontFamily: "'Syne',sans-serif" }}>
-              {project.title}
-            </h1>
-            <p className="text-slate-500 text-sm mb-4">Project Workspace</p>
+            <h1 className="ws-grad" style={{ fontSize:"1.65rem", fontWeight:800, marginBottom:4, lineHeight:1.2 }}>{project.title}</h1>
+            <p style={{ color:"rgba(148,163,184,.5)", fontSize:".82rem", marginBottom:16 }}>Project Workspace</p>
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-3">
-              <GhostBtn onClick={handleChat} disabled={chatLoading}>
-                <MessageSquare size={13} />
-                {chatLoading ? "Opening…" : `Chat with ${isClient ? "Freelancer" : "Client"}`}
-              </GhostBtn>
+            {/* progress bar */}
+            {milestones.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                  <span style={{ fontSize:".76rem", color:"rgba(148,163,184,.6)", fontWeight:500 }}>
+                    {milestones.filter(m=>m.status==="approved").length}/{milestones.length} milestones approved
+                  </span>
+                  <span style={{ fontSize:".76rem", fontWeight:800, color:"#818cf8" }}>{pct}%</span>
+                </div>
+                <div style={{ height:6, borderRadius:99, background:"rgba(99,102,241,.12)", overflow:"hidden" }}>
+                  <div className="progress-fill" style={{ height:"100%", borderRadius:99, width:`${pct}%`, background:"linear-gradient(90deg,#6366f1,#a855f7)" }}/>
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                  <span style={{ fontSize:".7rem", color:"rgba(148,163,184,.4)" }}>₹{earnedSoFar(milestones).toLocaleString()} approved</span>
+                  <span style={{ fontSize:".7rem", color:"rgba(148,163,184,.4)" }}>₹{totalMs(milestones).toLocaleString()} total</span>
+                </div>
+              </div>
+            )}
 
-              {isClient && project.status === "in-progress" && (
-                <GradBtn onClick={handleComplete} disabled={actionLoading} color="green" size="sm">
-                  <Flag size={13} /> Mark Complete
-                </GradBtn>
+            {/* action buttons */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+              <Ghost onClick={handleChat} disabled={chatLoading}>
+                <MessageSquare size={13}/> {chatLoading ? "Opening…" : `Chat with ${isClient?"Freelancer":"Client"}`}
+              </Ghost>
+              {isClient && project.status==="in-progress" && (
+                <GBtn onClick={handleComplete} disabled={actionLoading} color="green">
+                  <Flag size={13}/> Mark Complete
+                </GBtn>
               )}
             </div>
           </div>
         </motion.div>
 
-        {/* ── Stats row ───────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* ── STATS ROW ── */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
           {[
-            { icon: DollarSign, label: "Total Budget",   value: `₹${project.budget?.toLocaleString()}` },
-            { icon: Layers,     label: "Milestones",     value: milestones.length },
-            { icon: CheckCircle,label: "Approved",       value: milestones.filter(m => m.status === "approved").length },
-            { icon: Calendar,   label: "Deadline",       value: fmtDate(project.deadline) },
-          ].map(({ icon: Icon, label, value }, i) => (
-            <motion.div key={label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: i * 0.07 }}
-              className="rounded-xl p-4 flex items-start gap-3"
-              style={{ background: "rgba(30,27,75,0.45)", border: "1px solid rgba(99,102,241,0.18)" }}>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(99,102,241,0.15)" }}>
-                <Icon size={15} style={{ color: "#818cf8" }} />
+            { icon:DollarSign, label:"Budget",     val:`₹${project.budget?.toLocaleString()}` },
+            { icon:Layers,     label:"Milestones", val:milestones.length },
+            { icon:CheckCircle,label:"Approved",   val:milestones.filter(m=>m.status==="approved").length },
+            { icon:Calendar,   label:"Deadline",   val:fmtDate(project.deadline) },
+          ].map(({ icon:Icon, label, val },i) => (
+            <motion.div key={label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*.06}}
+              className="ws-card" style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ width:36, height:36, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:"rgba(99,102,241,.14)" }}>
+                <Icon size={15} style={{color:"#818cf8"}}/>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(148,163,184,0.5)" }}>{label}</p>
-                <p className="text-slate-100 font-bold text-sm mt-0.5">{value}</p>
+              <div style={{ minWidth:0 }}>
+                <p style={{ fontSize:".68rem", fontWeight:600, textTransform:"uppercase", letterSpacing:".07em", color:"rgba(148,163,184,.5)" }}>{label}</p>
+                <p style={{ color:"#e2e8f0", fontWeight:800, fontSize:".9rem", marginTop:1 }}>{val}</p>
               </div>
             </motion.div>
           ))}
         </div>
 
-        {/* ── Progress bar ────────────────────────────────────────────────── */}
-        {milestones.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.2 }}
-            className="rounded-2xl p-5"
-            style={{ background: "rgba(13,12,28,0.9)", border: "1px solid rgba(99,102,241,0.18)" }}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-slate-300">Overall Progress</p>
-              <p className="text-sm font-bold" style={{ color: "#818cf8" }}>{pct}%</p>
-            </div>
-            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(99,102,241,0.12)" }}>
-              <div className="progress-bar-fill h-full rounded-full"
-                style={{ width: `${pct}%`, background: "linear-gradient(90deg,#6366f1,#a855f7)" }} />
-            </div>
-            <div className="flex justify-between mt-2">
-              <span className="text-xs text-slate-500">₹{earnedSoFar(milestones).toLocaleString()} earned</span>
-              <span className="text-xs text-slate-500">₹{totalBudget(milestones).toLocaleString()} total</span>
-            </div>
-          </motion.div>
-        )}
+        {/* ── TABS ── */}
+        <div style={{ display:"flex", gap:6, marginBottom:20, padding:"4px", borderRadius:14, background:"rgba(13,12,28,.8)", border:"1px solid rgba(99,102,241,.13)", width:"fit-content" }}>
+          {tabs.map(({ key, label, icon:TIcon }) => (
+            <button key={key} onClick={()=>setTab(key)}
+              className={tab===key ? "tab-active" : ""}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 16px", borderRadius:10, border:"1px solid transparent", background:"none", color:"rgba(148,163,184,.6)", fontSize:".82rem", fontWeight:600, cursor:"pointer", transition:"all .2s" }}>
+              <TIcon size={13}/> {label}
+            </button>
+          ))}
+        </div>
 
-        {/* ── Main 2-col layout ──────────────────────────────────────────── */}
-        <div className="grid md:grid-cols-3 gap-5">
+        {/* ── CONTENT GRID ── */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:20, alignItems:"start" }}>
 
-          {/* LEFT — milestones (2/3 width) */}
-          <div className="md:col-span-2 space-y-4">
-            <SectionBox icon={Layers} title="Milestones"
-              action={
-                isClient && project.status !== "completed" ? (
-                  <GradBtn onClick={() => { setForm(emptyForm); setAddOpen(true); }} size="xs">
-                    <Plus size={13} /> Add
-                  </GradBtn>
-                ) : null
-              }>
-              {milestones.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 rounded-xl"
-                  style={{ border: "1px dashed rgba(99,102,241,0.2)", background: "rgba(13,12,28,0.5)" }}>
-                  <Layers size={32} className="mb-3" style={{ color: "rgba(99,102,241,0.3)" }} />
-                  <p className="text-slate-500 font-medium text-sm">No milestones yet</p>
-                  {isClient && (
-                    <p className="text-slate-600 text-xs mt-1">Add milestones to track work progress</p>
+          {/* LEFT */}
+          <div>
+            {/* MILESTONES TAB */}
+            {tab==="milestones" && (
+              <div className="ws-card" style={{ padding:20 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ width:30, height:30, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(99,102,241,.15)" }}>
+                      <Layers size={14} style={{color:"#818cf8"}}/>
+                    </div>
+                    <h3 style={{ color:"#e2e8f0", fontWeight:700, fontSize:".9rem", textTransform:"uppercase", letterSpacing:".06em" }}>Milestones</h3>
+                  </div>
+                  {isClient && !isCompleted && (
+                    <GBtn onClick={()=>{setForm(emptyForm);setAddOpen(true);}} size="xs"><Plus size={13}/> Add</GBtn>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {milestones.map((m, i) => (
-                    <MilestoneCard
-                      key={m._id} milestone={m} index={i}
-                      isClient={isClient} isFreelancer={isFreelancer}
-                      projectId={id} actionLoading={actionLoading}
-                      onAction={handleAction}
-                    />
-                  ))}
-                </div>
-              )}
-            </SectionBox>
 
-            {/* Project description */}
-            <SectionBox icon={FileText} title="Project Brief">
-              <p className="text-slate-400 text-sm leading-relaxed whitespace-pre-line">{project.description}</p>
-            </SectionBox>
+                {milestones.length===0 ? (
+                  <div style={{ padding:"40px 20px", textAlign:"center", borderRadius:14, border:"1px dashed rgba(99,102,241,.2)", background:"rgba(13,12,28,.5)" }}>
+                    <Layers size={32} style={{ color:"rgba(99,102,241,.3)", marginBottom:10 }}/>
+                    <p style={{ color:"rgba(148,163,184,.6)", fontWeight:600, fontSize:".88rem" }}>No milestones yet</p>
+                    {isClient && <p style={{ color:"rgba(148,163,184,.4)", fontSize:".78rem", marginTop:4 }}>Break the project into trackable milestones</p>}
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {milestones.map((m,i) => (
+                      <MilestoneCard key={m._id} m={m} idx={i} isClient={isClient} isFreelancer={isFreelancer} actionLoading={actionLoading} onAction={handleAction}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* OVERVIEW TAB */}
+            {tab==="overview" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                <div className="ws-card" style={{ padding:20 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+                    <div style={{ width:30, height:30, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(99,102,241,.15)" }}>
+                      <FileText size={14} style={{color:"#818cf8"}}/>
+                    </div>
+                    <h3 style={{ color:"#e2e8f0", fontWeight:700, fontSize:".9rem", textTransform:"uppercase", letterSpacing:".06em" }}>Project Brief</h3>
+                  </div>
+                  <p style={{ color:"rgba(148,163,184,.8)", fontSize:".875rem", lineHeight:1.75, whiteSpace:"pre-line" }}>{project.description}</p>
+                </div>
+                {project.attachments?.length > 0 && (
+                  <div className="ws-card" style={{ padding:20 }}>
+                    <h3 style={{ color:"rgba(148,163,184,.6)", fontSize:".75rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".07em", marginBottom:12 }}>Attachments</h3>
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      {project.attachments.map((f,i) => (
+                        <a key={i} href={f} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:10, background:"rgba(30,27,75,.5)", border:"1px solid rgba(99,102,241,.2)", color:"#a5b4fc", textDecoration:"none", fontSize:".8rem" }}>
+                          <ExternalLink size={11}/> {f}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* PAYMENT TAB */}
+            {tab==="payment" && isCompleted && (
+              <div className="ws-card" style={{ padding:20 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+                  <div style={{ width:30, height:30, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(245,158,11,.15)" }}>
+                    <CreditCard size={14} style={{color:"#f59e0b"}}/>
+                  </div>
+                  <h3 style={{ color:"#e2e8f0", fontWeight:700, fontSize:".9rem", textTransform:"uppercase", letterSpacing:".06em" }}>Payment</h3>
+                </div>
+
+                {isClient ? (
+                  <PaymentPanel project={project} onPay={handlePay}/>
+                ) : (
+                  <div style={{ padding:"16px", borderRadius:14, background:"rgba(99,102,241,.06)", border:"1px solid rgba(99,102,241,.18)", textAlign:"center" }}>
+                    <TrendingUp size={32} style={{ color:"#818cf8", marginBottom:10 }}/>
+                    <p style={{ color:"#e2e8f0", fontWeight:700, marginBottom:4 }}>Payment Status</p>
+                    <p style={{ fontSize:"1.6rem", fontWeight:800, color:(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).color }}>
+                      {(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).icon} ₹{project.budget?.toLocaleString()}
+                    </p>
+                    <p style={{ color:"rgba(148,163,184,.5)", fontSize:".8rem", marginTop:4 }}>{(PAY_CFG[project.paymentStatus]||PAY_CFG.unpaid).label}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* REVIEW TAB */}
+            {tab==="review" && isCompleted && (
+              <div className="ws-card" style={{ padding:20 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+                  <div style={{ width:30, height:30, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(251,191,36,.15)" }}>
+                    <Star size={14} style={{color:"#fbbf24"}}/>
+                  </div>
+                  <h3 style={{ color:"#e2e8f0", fontWeight:700, fontSize:".9rem", textTransform:"uppercase", letterSpacing:".06em" }}>Reviews</h3>
+                </div>
+                <ReviewPanel project={project} isClient={isClient} isFreelancer={isFreelancer} onSubmitReview={handleReview}/>
+
+                {/* show both reviews if available */}
+                {project.clientReview && project.isReviewedByClient && isFreelancer && (
+                  <div style={{ marginTop:16, padding:"14px 16px", borderRadius:14, background:"rgba(99,102,241,.06)", border:"1px solid rgba(99,102,241,.18)" }}>
+                    <p style={{ color:"rgba(148,163,184,.5)", fontSize:".72rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".07em", marginBottom:8 }}>Client's Review of You</p>
+                    <div style={{ display:"flex", gap:3, marginBottom:6 }}>
+                      {[1,2,3,4,5].map(n=><Star key={n} size={14} fill={n<=project.clientReview.rating?"#fbbf24":"none"} stroke={n<=project.clientReview.rating?"#fbbf24":"rgba(148,163,184,.3)"}/>)}
+                    </div>
+                    {project.clientReview.comment && <p style={{ color:"rgba(148,163,184,.7)", fontSize:".84rem" }}>{project.clientReview.comment}</p>}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* RIGHT — sidebar (1/3 width) */}
-          <div className="space-y-4">
+          {/* RIGHT SIDEBAR */}
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
 
-            {/* The other party */}
-            <SectionBox icon={isClient ? Briefcase : User} title={isClient ? "Assigned Freelancer" : "Client"}>
+            {/* Other party */}
+            <div className="ws-card" style={{ padding:16 }}>
+              <p style={{ fontSize:".72rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".07em", color:"rgba(148,163,184,.5)", marginBottom:12 }}>
+                {isClient ? "Assigned Freelancer" : "Client"}
+              </p>
               {other ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden shrink-0"
-                    style={{ border: "2px solid rgba(99,102,241,0.3)" }}>
-                    <img src={other.avatar || "/photo.jpg"} alt="" className="w-full h-full object-cover" />
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ width:44, height:44, borderRadius:"50%", overflow:"hidden", flexShrink:0, border:"2px solid rgba(99,102,241,.3)" }}>
+                    <img src={other.avatar||"/photo.jpg"} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
                   </div>
-                  <div>
-                    <p className="text-slate-200 font-semibold text-sm">{other.name}</p>
-                    <p className="text-slate-500 text-xs">{other.email}</p>
-                    {isClient && other.skills?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {other.skills.slice(0, 3).map((s, i) => (
-                          <span key={i} className="skill-pill">{s}</span>
-                        ))}
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ color:"#e2e8f0", fontWeight:700, fontSize:".88rem" }}>{other.name}</p>
+                    <p style={{ color:"rgba(148,163,184,.5)", fontSize:".74rem", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{other.email}</p>
+                    {other.rating > 0 && (
+                      <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:3 }}>
+                        <Star size={11} fill="#fbbf24" stroke="#fbbf24"/>
+                        <span style={{ color:"#fbbf24", fontSize:".75rem", fontWeight:700 }}>{other.rating}</span>
                       </div>
+                    )}
+                    {isClient && other.skills?.slice(0,3).map((s,i)=>
+                      <span key={i} className="ws-pill" style={{ marginRight:4, marginTop:4, display:"inline-block" }}>{s}</span>
                     )}
                   </div>
                 </div>
               ) : (
-                <p className="text-slate-500 text-sm">Not assigned yet</p>
+                <p style={{ color:"rgba(148,163,184,.5)", fontSize:".84rem" }}>Not assigned yet</p>
               )}
-            </SectionBox>
-
-            {/* Skills required */}
-            {project.skillsRequired?.length > 0 && (
-              <SectionBox icon={BarChart2} title="Skills Required">
-                <div className="flex flex-wrap gap-2">
-                  {project.skillsRequired.map((s, i) => (
-                    <span key={i} className="skill-pill">{s}</span>
-                  ))}
-                </div>
-              </SectionBox>
-            )}
+            </div>
 
             {/* Timeline */}
-            <SectionBox icon={Calendar} title="Timeline">
-              <div className="space-y-2.5">
-                {[
-                  ["Posted",    project.createdAt],
-                  ["Started",   project.startedAt],
-                  ["Deadline",  project.deadline],
-                  ["Completed", project.completedAt],
-                ].map(([label, val]) => (
-                  <div key={label} className="flex justify-between items-center">
-                    <span className="text-slate-500 text-xs">{label}</span>
-                    <span className="text-slate-300 text-xs font-semibold">{fmtDate(val)}</span>
-                  </div>
-                ))}
-              </div>
-            </SectionBox>
-
-            {/* Milestone summary */}
-            {milestones.length > 0 && (
-              <SectionBox icon={CheckCircle} title="Milestone Summary">
-                <div className="space-y-2">
-                  {Object.entries(MS).map(([key, cfg]) => {
-                    const count = milestones.filter(m => m.status === key).length;
-                    if (!count) return null;
-                    const Icon = cfg.icon;
-                    return (
-                      <div key={key} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon size={12} style={{ color: cfg.color }} />
-                          <span className="text-xs text-slate-400">{cfg.label}</span>
-                        </div>
-                        <span className="text-xs font-bold" style={{ color: cfg.color }}>{count}</span>
-                      </div>
-                    );
-                  })}
+            <div className="ws-card" style={{ padding:16 }}>
+              <p style={{ fontSize:".72rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".07em", color:"rgba(148,163,184,.5)", marginBottom:12 }}>Timeline</p>
+              {[["Posted",project.createdAt],["Started",project.startedAt],["Deadline",project.deadline],["Completed",project.completedAt]].map(([l,v])=>(
+                <div key={l} style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                  <span style={{ color:"rgba(148,163,184,.5)", fontSize:".78rem" }}>{l}</span>
+                  <span style={{ color:"#e2e8f0", fontSize:".78rem", fontWeight:600 }}>{fmtDate(v)}</span>
                 </div>
-              </SectionBox>
+              ))}
+            </div>
+
+            {/* Skills */}
+            {project.skillsRequired?.length > 0 && (
+              <div className="ws-card" style={{ padding:16 }}>
+                <p style={{ fontSize:".72rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".07em", color:"rgba(148,163,184,.5)", marginBottom:10 }}>Skills Required</p>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {project.skillsRequired.map((s,i)=><span key={i} className="ws-pill">{s}</span>)}
+                </div>
+              </div>
+            )}
+
+            {/* Milestone counts */}
+            {milestones.length > 0 && (
+              <div className="ws-card" style={{ padding:16 }}>
+                <p style={{ fontSize:".72rem", fontWeight:700, textTransform:"uppercase", letterSpacing:".07em", color:"rgba(148,163,184,.5)", marginBottom:12 }}>Status Breakdown</p>
+                {Object.entries(MS_CFG).map(([key,cfg])=>{
+                  const count = milestones.filter(m=>m.status===key).length;
+                  if (!count) return null;
+                  const Icon = cfg.icon;
+                  return (
+                    <div key={key} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                        <Icon size={12} style={{color:cfg.color}}/>
+                        <span style={{ color:"rgba(148,163,184,.65)", fontSize:".8rem" }}>{cfg.label}</span>
+                      </div>
+                      <span style={{ color:cfg.color, fontWeight:700, fontSize:".82rem" }}>{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
           </div>
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/*  MODALS                                                              */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ══ MODALS ══════════════════════════════════════════════════════════ */}
 
       {/* Add milestone */}
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Milestone">
-        <form onSubmit={handleAddMilestone} className="space-y-4">
-          <InputField label="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Design mockups" required />
-          <TextareaField label="Description (optional)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Describe what should be delivered…" />
-          <div className="grid grid-cols-2 gap-3">
-            <InputField label="Amount (₹)" type="number" min="1" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" required />
-            <InputField label="Due Date" type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
+      <Modal open={addOpen} onClose={()=>setAddOpen(false)} title="Add Milestone" icon={Plus}>
+        <form onSubmit={handleAddMilestone} style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <Field label="Title" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Design Mockups" required/>
+          <Field label="Description" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="What will be delivered…" rows={3}/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Field label="Amount (₹)" type="number" min="1" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="5000" required/>
+            <Field label="Due Date" type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/>
           </div>
-          <GradBtn size="md" disabled={actionLoading}>
-            <Plus size={14} /> {actionLoading ? "Adding…" : "Add Milestone"}
-          </GradBtn>
+          <GBtn size="md" full disabled={actionLoading}><Plus size={14}/>{actionLoading?"Adding…":"Add Milestone"}</GBtn>
         </form>
       </Modal>
 
       {/* Edit milestone */}
-      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Milestone">
-        <form onSubmit={handleEditMilestone} className="space-y-4">
-          <InputField label="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Milestone title" required />
-          <TextareaField label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="What needs to be delivered…" />
-          <div className="grid grid-cols-2 gap-3">
-            <InputField label="Amount (₹)" type="number" min="1" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0" required />
-            <InputField label="Due Date" type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
+      <Modal open={editOpen} onClose={()=>setEditOpen(false)} title="Edit Milestone" icon={Edit2}>
+        <form onSubmit={handleEditMilestone} style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <Field label="Title" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Milestone title" required/>
+          <Field label="Description" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="What will be delivered…" rows={3}/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Field label="Amount (₹)" type="number" min="1" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} required/>
+            <Field label="Due Date" type="date" value={form.dueDate} onChange={e=>setForm({...form,dueDate:e.target.value})}/>
           </div>
-          <GradBtn size="md" disabled={actionLoading}>
-            <Edit2 size={14} /> {actionLoading ? "Saving…" : "Save Changes"}
-          </GradBtn>
+          <GBtn size="md" full disabled={actionLoading}><Edit2 size={14}/>{actionLoading?"Saving…":"Save Changes"}</GBtn>
         </form>
       </Modal>
 
-      {/* Submit milestone */}
-      <Modal open={submitOpen} onClose={() => setSubmitOpen(false)} title="Submit Milestone">
-        <div className="space-y-4">
-          <TextareaField label="Note to Client" value={submitForm.note} onChange={e => setSubmitForm({ ...submitForm, note: e.target.value })} placeholder="Describe what you've done, any caveats…" rows={4} />
-          <TextareaField label="File / Link URLs (one per line)" value={submitForm.files} onChange={e => setSubmitForm({ ...submitForm, files: e.target.value })} placeholder={"https://github.com/you/repo\nhttps://figma.com/your-design"} rows={3} />
-          <div className="flex gap-3">
-            <GradBtn onClick={handleSubmitMilestone} disabled={actionLoading} color="purple" size="md">
-              <Send size={14} /> {actionLoading ? "Submitting…" : "Submit for Review"}
-            </GradBtn>
-            <GhostBtn onClick={() => setSubmitOpen(false)}>Cancel</GhostBtn>
+      {/* Submit work */}
+      <Modal open={submitOpen} onClose={()=>setSubmitOpen(false)} title="Submit Milestone Work" icon={Send}>
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <Field label="Note to Client" value={submitForm.note} onChange={e=>setSubmitForm({...submitForm,note:e.target.value})} placeholder="Describe what you've completed, any context…" rows={4}/>
+          <Field label="Deliverable URLs (one per line)" value={submitForm.files} onChange={e=>setSubmitForm({...submitForm,files:e.target.value})} placeholder={"https://github.com/you/repo\nhttps://figma.com/design-link"} rows={3}/>
+          <div style={{ display:"flex", gap:8 }}>
+            <GBtn onClick={handleSubmitMilestone} disabled={actionLoading} color="purple" size="md" full><Send size={14}/>{actionLoading?"Submitting…":"Submit for Review"}</GBtn>
+            <Ghost onClick={()=>setSubmitOpen(false)}>Cancel</Ghost>
           </div>
         </div>
       </Modal>
 
-      {/* Reject / request changes */}
-      <Modal open={rejectOpen} onClose={() => setRejectOpen(false)} title="Request Changes">
-        <div className="space-y-4">
-          <div className="p-3 rounded-xl" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-            <p className="text-xs text-slate-400">The freelancer will see this feedback and can resubmit the milestone.</p>
+      {/* Request changes */}
+      <Modal open={rejectOpen} onClose={()=>setRejectOpen(false)} title="Request Changes" icon={AlertCircle}>
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <div style={{ padding:"10px 14px", borderRadius:12, background:"rgba(239,68,68,.06)", border:"1px solid rgba(239,68,68,.2)" }}>
+            <p style={{ color:"rgba(148,163,184,.7)", fontSize:".82rem" }}>The freelancer will see your feedback and can resubmit.</p>
           </div>
-          <TextareaField label="Feedback" value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="Explain what needs to be changed or improved…" rows={4} />
-          <div className="flex gap-3">
-            <GradBtn onClick={handleRejectMilestone} disabled={actionLoading} color="red" size="md">
-              <AlertCircle size={14} /> {actionLoading ? "Sending…" : "Request Changes"}
-            </GradBtn>
-            <GhostBtn onClick={() => setRejectOpen(false)}>Cancel</GhostBtn>
+          <Field label="Feedback" value={rejectNote} onChange={e=>setRejectNote(e.target.value)} placeholder="Explain what needs to be changed or improved…" rows={4}/>
+          <div style={{ display:"flex", gap:8 }}>
+            <GBtn onClick={handleRejectMilestone} disabled={actionLoading} color="red" size="md" full><AlertCircle size={14}/>{actionLoading?"Sending…":"Request Changes"}</GBtn>
+            <Ghost onClick={()=>setRejectOpen(false)}>Cancel</Ghost>
           </div>
         </div>
       </Modal>

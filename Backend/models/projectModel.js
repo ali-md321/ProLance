@@ -1,180 +1,67 @@
 const mongoose = require("mongoose");
 
+const reviewSchema = new mongoose.Schema({
+  rating:    { type: Number, min: 1, max: 5 },
+  comment:   { type: String, default: "" },
+  createdAt: { type: Date,   default: Date.now },
+}, { _id: false });
+
 const milestoneSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true
-  },
-
-  description: {
-    type: String
-  },
-
-  amount: {
-    type: Number,
-    required: true
-  },
-
-  dueDate: Date,
-
+  title:       { type: String, required: true },
+  description: { type: String },
+  amount:      { type: Number, required: true },
+  dueDate:     Date,
   status: {
-    type: String,
-    enum: ["pending", "in-progress", "submitted", "approved", "rejected"],
-    default: "pending"
+    type:    String,
+    enum:    ["pending","in-progress","submitted","approved","rejected"],
+    default: "pending",
   },
-
-  submissionFiles: [
-    {
-      type: String
-    }
-  ],
-
-  // freelancer's note when submitting work
-  submissionNote: {
-    type: String,
-    default: ""
-  },
-
-  // client's feedback when rejecting
-  rejectionNote: {
-    type: String,
-    default: ""
-  }
+  submissionFiles: [{ type: String }],
+  submissionNote:  { type: String, default: "" },
+  rejectionNote:   { type: String, default: "" },
 });
-
 
 const projectSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-      trim: true
-    },
+    title:          { type: String, required: true, trim: true },
+    description:    { type: String, required: true },
+    category:       { type: String },
+    skillsRequired: [{ type: String }],
+    budget:         { type: Number, required: true },
+    budgetType:     { type: String, enum: ["fixed","hourly"], default: "fixed" },
+    experienceLevel:{ type: String, enum: ["entry","intermediate","expert"], default: "entry" },
+    deadline:       { type: Date },
+    attachments:    [{ type: String }],
 
-    description: {
-      type: String,
-      required: true
-    },
-
-    category: {
-      type: String,
-    },
-
-    skillsRequired: [
-      {
-        type: String
-      }
-    ],
-
-    budget: {
-      type: Number,
-      required: true
-    },
-
-    budgetType: {
-      type: String,
-      enum: ["fixed", "hourly"],
-      default: "fixed"
-    },
-
-    experienceLevel: {
-      type: String,
-      enum: ["entry", "intermediate", "expert"],
-      default: "entry"
-    },
-
-    deadline: {
-      type: Date
-    },
-
-    attachments: [
-      {
-        type: String
-      }
-    ],
-
-    client: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
-
-    proposals: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Proposal"
-      }
-    ],
-
-    selectedFreelancer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    },
-
-    contract: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Contract",
-    },
-
-    milestones: [milestoneSchema],
-
-    totalProposals: {
-      type: Number,
-      default: 0
-    },
+    client:             { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    proposals:          [{ type: mongoose.Schema.Types.ObjectId, ref: "Proposal" }],
+    selectedFreelancer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    contract:           { type: mongoose.Schema.Types.ObjectId, ref: "Contract" },
+    milestones:         [milestoneSchema],
+    totalProposals:     { type: Number, default: 0 },
 
     status: {
       type: String,
-      enum: [
-        "open",
-        "proposal-selected",
-        "in-progress",
-        "submitted",
-        "completed",
-        "cancelled",
-        "disputed"
-      ],
-      default: "open"
+      enum: ["open","proposal-selected","in-progress","submitted","completed","cancelled","disputed"],
+      default: "open",
     },
-
     paymentStatus: {
       type: String,
-      enum: [
-        "unpaid",
-        "escrow-funded",
-        "partially-paid",
-        "paid"
-      ],
-      default: "unpaid"
+      enum: ["unpaid","escrow-funded","partially-paid","paid"],
+      default: "unpaid",
     },
 
-    isReviewedByClient: {
-      type: Boolean,
-      default: false
-    },
+    // ── Reviews ────────────────────────────────────────────────────────────
+    clientReview:         reviewSchema,          // client → freelancer
+    freelancerReview:     reviewSchema,          // freelancer → client
+    isReviewedByClient:     { type: Boolean, default: false },
+    isReviewedByFreelancer: { type: Boolean, default: false },
 
-    isReviewedByFreelancer: {
-      type: Boolean,
-      default: false
-    },
-
-    startedAt: Date,
-
+    startedAt:   Date,
     completedAt: Date,
-
-    tags: [
-      {
-        type: String
-      }
-    ],
-
-    visibility: {
-      type: String,
-      enum: ["public", "private"],
-      default: "public"
-    }
+    tags:        [{ type: String }],
+    visibility:  { type: String, enum: ["public","private"], default: "public" },
   },
-
   { timestamps: true }
 );
 
