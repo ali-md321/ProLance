@@ -51,6 +51,9 @@ const projectSchema = new mongoose.Schema(
       default: "unpaid",
     },
 
+    // Stripe payment reference
+    stripePaymentIntentId: { type: String, default: "" },
+
     // ── Reviews ────────────────────────────────────────────────────────────
     clientReview:         reviewSchema,          // client → freelancer
     freelancerReview:     reviewSchema,          // freelancer → client

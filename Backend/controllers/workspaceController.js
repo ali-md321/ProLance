@@ -178,12 +178,15 @@ exports.createPaymentIntentController = catchAsync(async (req, res) => {
   if (project.status !== "completed") throw new ErrorHandler("Project must be completed before payment", 400);
   if (project.paymentStatus === "paid") throw new ErrorHandler("Project is already paid", 400);
 
-  // amount in paise (INR smallest unit)
-  const amountPaise = Math.round(project.budget * 100);
+  // INR — amount in paise (smallest unit). Min 50 paise for test mode.
+  const amountPaise = Math.max(Math.round(project.budget * 100), 50);
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount:   amountPaise,
     currency: "inr",
+    // Use manual confirmation so the frontend calls confirmCardPayment()
+    confirmation_method: "manual",
+    confirm: false,
     metadata: {
       projectId:    project._id.toString(),
       clientId:     uid(req),
@@ -199,32 +202,56 @@ exports.createPaymentIntentController = catchAsync(async (req, res) => {
   });
 });
 
-// ── STRIPE: confirm payment (called after Stripe confirms) ────────────────────
+// ── STRIPE: confirm payment ────────────────────────────────────────────────────
+// Called AFTER stripe.confirmCardPayment() succeeds on the frontend.
+// The frontend passes the real paymentIntent.id that Stripe returned.
+// We verify it server-side with Stripe, then record payment in our DB.
 exports.confirmPaymentController = catchAsync(async (req, res) => {
   const { paymentIntentId } = req.body;
-  const stripe  = require("stripe")(process.env.STRIPE_SECRET_KEY);
+  if (!paymentIntentId) throw new ErrorHandler("paymentIntentId is required", 400);
+
   const project = await Project.findById(req.params.id);
   if (!project) throw new ErrorHandler("Project not found", 404);
   if (project.client.toString() !== uid(req)) throw new ErrorHandler("Not authorised", 403);
+  if (project.paymentStatus === "paid") {
+    return res.status(200).json({ success: true, message: "Already paid", project });
+  }
 
-  // verify with Stripe
-  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-  if (pi.status !== "succeeded") throw new ErrorHandler("Payment not confirmed by Stripe", 400);
+  // ── Verify the PaymentIntent with Stripe ──────────────────────────────────
+  const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+  let pi;
+  try {
+    pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+  } catch (stripeErr) {
+    throw new ErrorHandler(`Stripe verification failed: ${stripeErr.message}`, 400);
+  }
 
-  project.paymentStatus = "paid";
+  if (pi.status !== "succeeded") {
+    throw new ErrorHandler(`Payment not completed. Stripe status: ${pi.status}`, 400);
+  }
+
+  // ── Verify the PaymentIntent belongs to this project ──────────────────────
+  if (pi.metadata?.projectId && pi.metadata.projectId !== project._id.toString()) {
+    throw new ErrorHandler("PaymentIntent does not match this project", 400);
+  }
+
+  // ── Record in DB ──────────────────────────────────────────────────────────
+  project.paymentStatus  = "paid";
+  project.stripePaymentIntentId = paymentIntentId;
   await project.save();
 
-  // update freelancer earnings
   await Freelancer.findByIdAndUpdate(project.selectedFreelancer, {
     $inc: { totalEarnings: project.budget },
   });
-
-  // update client total spent
   await Client.findByIdAndUpdate(project.client, {
     $inc: { totalSpent: project.budget },
   });
 
-  res.status(200).json({ success: true, message: "Payment confirmed! Freelancer has been paid.", project });
+  res.status(200).json({
+    success: true,
+    message: "Payment confirmed! Freelancer has been paid. 💰",
+    project,
+  });
 });
 
 // ── REVIEW: client reviews freelancer ────────────────────────────────────────
